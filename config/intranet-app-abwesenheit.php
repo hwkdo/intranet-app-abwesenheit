@@ -14,7 +14,8 @@ return [
             'name' => 'App-Abwesenheit-Benutzer',
             'permissions' => [
                 'see-app-abwesenheit',                
-            ]
+            ],
+            'all_users' => true,
         ],
 ]
 ];
