@@ -22,7 +22,7 @@
         "illuminate/database": "^10.0||^11.0||^12.0",
         "illuminate/support": "^10.0||^11.0||^12.0",
         "hwkdo/intranet-app-base": "dev-main || ^1.0",
-        "hwkdo/cisco-phone-services-laravel": "dev-main || ^1",
+        "hwkdo/cisco-phone-services-laravel": "dev-main || ^0",
         "hwkdo/d3-rest-laravel": "dev-main || ^1",
         "hwkdo/hwk-admin-laravel": "dev-main || ^1",
         "hwkdo/ms-graph-laravel": "dev-main || ^1",
