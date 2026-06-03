@@ -1,10 +1,13 @@
 <?php
 
 namespace Hwkdo\IntranetAppAbwesenheit;
+
+use Hwkdo\IntranetAppAbwesenheit\Data\AppSettings;
+use Hwkdo\IntranetAppAbwesenheit\Data\UserSettings;
 use Hwkdo\IntranetAppBase\Interfaces\IntranetAppInterface;
 use Illuminate\Support\Collection;
 
-class IntranetAppAbwesenheit implements IntranetAppInterface 
+class IntranetAppAbwesenheit implements IntranetAppInterface
 {
     public static function app_name(): string
     {
@@ -30,15 +33,15 @@ class IntranetAppAbwesenheit implements IntranetAppInterface
     {
         return collect(config('intranet-app-abwesenheit.roles.user'));
     }
-    
+
     public static function userSettingsClass(): ?string
     {
-        return \Hwkdo\IntranetAppAbwesenheit\Data\UserSettings::class;
+        return UserSettings::class;
     }
-    
+
     public static function appSettingsClass(): ?string
     {
-        return \Hwkdo\IntranetAppAbwesenheit\Data\AppSettings::class;
+        return AppSettings::class;
     }
 
     public static function mcpServers(): array

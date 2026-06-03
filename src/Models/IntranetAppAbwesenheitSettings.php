@@ -16,7 +16,7 @@ class IntranetAppAbwesenheitSettings extends Model
         ];
     }
 
-    public static function current(): IntranetAppAbwesenheitSettings|null
+    public static function current(): ?IntranetAppAbwesenheitSettings
     {
         return self::orderBy('version', 'desc')->first();
     }

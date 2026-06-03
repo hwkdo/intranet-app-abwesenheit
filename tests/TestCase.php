@@ -2,9 +2,9 @@
 
 namespace Hwkdo\IntranetAppAbwesenheit\Tests;
 
+use Hwkdo\IntranetAppAbwesenheit\IntranetAppAbwesenheitServiceProvider;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Orchestra\Testbench\TestCase as Orchestra;
-use Hwkdo\IntranetAppAbwesenheit\IntranetAppAbwesenheitServiceProvider;
 
 class TestCase extends Orchestra
 {
