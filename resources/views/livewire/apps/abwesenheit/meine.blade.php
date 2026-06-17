@@ -15,10 +15,10 @@ use function Livewire\Volt\computed;
 use function Livewire\Volt\mount;
 use function Livewire\Volt\state;
 use function Livewire\Volt\title;
-use function Livewire\Volt\updated;
 
 state([
     'userId' => null,
+    'abwesenheitStatus' => [],
     'activationMode' => 'now',
     'extendedMode' => false,
     'vertreter' => '',
@@ -38,17 +38,18 @@ mount(function (?int $userId = null): void {
     $this->userId = $userId;
     $target = $userId ? AbwesenheitModels::userQuery()->findOrFail($userId) : auth()->user();
     Gate::authorize('abwesenheit.view', $target);
+    $this->refreshAbwesenheitStatus();
 });
+
+$refreshAbwesenheitStatus = function (): void {
+    $this->abwesenheitStatus = app(AbwesenheitService::class)->show($this->targetUser);
+};
 
 title(fn () => 'Abwesenheit – '.$this->targetUser->name);
 
 $targetUser = computed(fn () => $this->userId
     ? AbwesenheitModels::userQuery()->findOrFail($this->userId)
     : auth()->user());
-
-$abwesenheit = computed(function () {
-    return app(AbwesenheitService::class)->show($this->targetUser);
-});
 
 $pendingSchedules = computed(fn () => AbwesenheitSchedule::query()
     ->where('user_id', $this->targetUser->id)
@@ -67,7 +68,7 @@ $mailboxDelegationNotAllowed = computed(fn () => $this->userId !== null
     && ! $this->targetUser->allow_supervisor_mailbox_delegation);
 
 $outlookStatus = computed(function () {
-    $outlook = $this->abwesenheit['outlook'] ?? null;
+    $outlook = $this->abwesenheitStatus['outlook'] ?? null;
     if (is_array($outlook)) {
         return $outlook['status'] ?? 'disabled';
     }
@@ -80,10 +81,10 @@ $outlookStatus = computed(function () {
     return 'disabled';
 });
 
-$statusUnavailable = computed(fn () => ! empty($this->abwesenheit['fetch_errors'] ?? []));
+$statusUnavailable = computed(fn () => ! empty($this->abwesenheitStatus['fetch_errors'] ?? []));
 
 $canConfigure = computed(fn () => $this->outlookStatus === 'disabled'
-    && ! ($this->abwesenheit['fetch_errors']['outlook'] ?? false));
+    && ! ($this->abwesenheitStatus['fetch_errors']['outlook'] ?? false));
 
 $syncVertreter = function (): void {
     if (! $this->extendedMode && $this->vertreter !== '') {
@@ -92,10 +93,6 @@ $syncVertreter = function (): void {
         $this->d3_vertreter = $this->vertreter;
     }
 };
-
-updated(['vertreter', 'extendedMode'], function () use ($syncVertreter): void {
-    $syncVertreter();
-});
 
 $buildStoreData = function () use ($syncVertreter): AbwesenheitStoreData {
     $syncVertreter();
@@ -190,7 +187,7 @@ $save = function () use ($buildStoreData, $syncVertreter): void {
     }
 
     Flux::toast(text: 'Abwesenheit wurde eingerichtet.', variant: 'success');
-    unset($this->abwesenheit);
+    $this->refreshAbwesenheitStatus();
 };
 
 $remove = function (): void {
@@ -201,7 +198,7 @@ $remove = function (): void {
     app(AbwesenheitScheduleProcessor::class)->markEndedEarlyForUser($this->targetUser->id);
 
     Flux::toast(text: 'Abwesenheit wurde deaktiviert.', variant: 'success');
-    unset($this->abwesenheit);
+    $this->refreshAbwesenheitStatus();
 };
 
 $cancelSchedule = function (int $scheduleId): void {
@@ -232,7 +229,7 @@ $cancelSchedule = function (int $scheduleId): void {
         @endif
 
         <div class="space-y-3">
-            @if($this->abwesenheit['fetch_errors']['outlook'] ?? false)
+            @if($this->abwesenheitStatus['fetch_errors']['outlook'] ?? false)
                 <flux:callout variant="danger" icon="exclamation-triangle">Outlook-Status konnte nicht abgerufen werden.</flux:callout>
             @elseif($this->outlookStatus === 'disabled')
                 <flux:callout variant="success" icon="check-circle">Keine Abwesenheit in Outlook eingerichtet</flux:callout>
@@ -241,26 +238,26 @@ $cancelSchedule = function (int $scheduleId): void {
             @elseif($this->outlookStatus === 'scheduled')
                 <flux:callout variant="warning" icon="clock">
                     Abwesenheit in Outlook eingerichtet (mit Enddatum)
-                    @if(is_array($this->abwesenheit['outlook'] ?? null))
-                        {{ $this->abwesenheit['outlook']['scheduledEndDateTime']['dateTime'] ?? '' }}
+                    @if(is_array($this->abwesenheitStatus['outlook'] ?? null))
+                        {{ $this->abwesenheitStatus['outlook']['scheduledEndDateTime']['dateTime'] ?? '' }}
                     @endif
                 </flux:callout>
             @endif
 
-            @if($this->abwesenheit['fetch_errors']['phone'] ?? false)
+            @if($this->abwesenheitStatus['fetch_errors']['phone'] ?? false)
                 <flux:callout variant="danger" icon="exclamation-triangle">Telefonstatus konnte nicht abgerufen werden (Cisco AXL).</flux:callout>
-            @elseif(strlen((string) ($this->abwesenheit['phone'] ?? '')) > 0)
-                <flux:callout variant="warning" icon="phone">Telefon umgeleitet auf {{ $this->abwesenheit['phone'] }}</flux:callout>
+            @elseif(strlen((string) ($this->abwesenheitStatus['phone'] ?? '')) > 0)
+                <flux:callout variant="warning" icon="phone">Telefon umgeleitet auf {{ $this->abwesenheitStatus['phone'] }}</flux:callout>
             @else
                 <flux:callout variant="success" icon="check-circle">Keine Telefonumleitung eingerichtet</flux:callout>
             @endif
 
-            @if($this->abwesenheit['fetch_errors']['d3'] ?? false)
+            @if($this->abwesenheitStatus['fetch_errors']['d3'] ?? false)
                 <flux:callout variant="danger" icon="exclamation-triangle">d3-Status konnte nicht abgerufen werden.</flux:callout>
-            @elseif(($this->abwesenheit['d3']['abwesend'] ?? false) == true)
+            @elseif(($this->abwesenheitStatus['d3']['abwesend'] ?? false) == true)
                 <flux:callout variant="warning" icon="inbox">
-                    @if(! empty($this->abwesenheit['d3']['vertreter']))
-                        d3 Postfach umgeleitet auf {{ $this->abwesenheit['d3']['vertreter']['vorname'] ?? '' }} {{ $this->abwesenheit['d3']['vertreter']['nachname'] ?? '' }}
+                    @if(! empty($this->abwesenheitStatus['d3']['vertreter']))
+                        d3 Postfach umgeleitet auf {{ $this->abwesenheitStatus['d3']['vertreter']['vorname'] ?? '' }} {{ $this->abwesenheitStatus['d3']['vertreter']['nachname'] ?? '' }}
                     @else
                         d3 Abwesenheit aktiv (kein Vertreter hinterlegt)
                     @endif
@@ -295,34 +292,53 @@ $cancelSchedule = function (int $scheduleId): void {
             <flux:card class="space-y-6">
                 <flux:heading size="lg">Abwesenheit einrichten</flux:heading>
 
-                <flux:radio.group wire:model.live="activationMode" label="Aktivierung">
+                <flux:radio.group wire:model="activationMode" label="Aktivierung">
                     <flux:radio value="now" label="Jetzt aktivieren" />
                     <flux:radio value="scheduled" label="Planen" />
                 </flux:radio.group>
 
                 <form wire:submit="save" class="space-y-6">
-                    @if($this->activationMode === 'scheduled')
-                        <div class="grid gap-4 md:grid-cols-2">
-                            <flux:date-picker wire:model="start" label="Von" min="today" />
-                            <flux:date-picker wire:model="end" label="Bis" />
-                        </div>
-                    @else
+                    <div
+                        class="grid gap-4 md:grid-cols-2"
+                        x-show="$wire.activationMode === 'scheduled'"
+                        x-cloak
+                        x-transition.opacity.duration.150ms
+                    >
+                        <flux:date-picker wire:model="start" label="Von" min="today" />
+                        <flux:date-picker wire:model="end" label="Bis" />
+                    </div>
+
+                    <div
+                        x-show="$wire.activationMode !== 'scheduled'"
+                        x-cloak
+                        x-transition.opacity.duration.150ms
+                    >
                         <flux:date-picker wire:model="end" label="Bis (optional)" />
-                    @endif
+                    </div>
 
                     <flux:textarea wire:model="notice" label="Zusätzlicher Hinweis im Abwesenheitstext (optional)" />
 
-                    <flux:switch wire:model.live="extendedMode" label="Erweitert" description="Getrennte Vertreter für E-Mail, Telefon und d3" />
+                    <flux:switch wire:model="extendedMode" label="Erweitert" description="Getrennte Vertreter für E-Mail, Telefon und d3" />
 
-                    @if(! $this->extendedMode)
-                        <flux:select wire:model.live="vertreter" label="Vertretung" variant="listbox" searchable placeholder="Bitte wählen" required>
+                    <div
+                        x-show="! $wire.extendedMode"
+                        x-cloak
+                        x-transition.opacity.duration.150ms
+                    >
+                        <flux:select wire:model="vertreter" label="Vertretung" variant="listbox" searchable placeholder="Bitte wählen" required>
                             <flux:select.option value="">Bitte wählen</flux:select.option>
                             @foreach($this->users as $username => $name)
                                 <flux:select.option value="{{ $username }}">{{ $name }}</flux:select.option>
                             @endforeach
                         </flux:select>
-                    @else
-                        <div class="space-y-4 rounded-lg border border-zinc-200 p-4 dark:border-white/10">
+                    </div>
+
+                    <div
+                        class="space-y-4 rounded-lg border border-zinc-200 p-4 dark:border-white/10"
+                        x-show="$wire.extendedMode"
+                        x-cloak
+                        x-transition.opacity.duration.150ms
+                    >
                             <flux:heading size="sm">Vertreter pro Bereich</flux:heading>
                             <flux:select wire:model="email_vertreter" label="E-Mail (Outlook & Postfach)" variant="listbox" searchable placeholder="Bitte wählen" required>
                                 <flux:select.option value="">Bitte wählen</flux:select.option>
@@ -342,8 +358,7 @@ $cancelSchedule = function (int $scheduleId): void {
                                     <flux:select.option value="{{ $username }}">{{ $name }}</flux:select.option>
                                 @endforeach
                             </flux:select>
-                        </div>
-                    @endif
+                    </div>
 
                     <div class="grid gap-4 md:grid-cols-3">
                         <flux:switch wire:model="call_forwarding" label="Telefon umleiten" />
@@ -364,9 +379,7 @@ $cancelSchedule = function (int $scheduleId): void {
 
                     <div class="flex justify-end">
                         <flux:button type="submit" variant="primary" wire:loading.attr="disabled">
-                            <span wire:loading.remove wire:target="save">
-                                {{ $this->activationMode === 'scheduled' ? 'Abwesenheit planen' : 'Speichern' }}
-                            </span>
+                            <span wire:loading.remove wire:target="save" x-text="$wire.activationMode === 'scheduled' ? 'Abwesenheit planen' : 'Speichern'"></span>
                             <span wire:loading wire:target="save">Speichern…</span>
                         </flux:button>
                     </div>
