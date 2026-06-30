@@ -38,3 +38,18 @@ test('non supervisor cannot manage other users', function (): void {
 
     expect($policy->manage($user, $other))->toBeFalse();
 });
+
+test('vorgesetzter can manage child gvp supervisor recursively', function (): void {
+    $gb = Gvp::factory()->create(['kuerzel' => 'GB']);
+    $abteilung = Gvp::factory()->create(['kuerzel' => 'A', 'parent_id' => $gb->id]);
+
+    $geschaeftsfuehrer = User::factory()->create(['gvp_id' => $gb->id, 'active' => true]);
+    $abteilungsleiterin = User::factory()->create(['gvp_id' => $abteilung->id, 'active' => true]);
+
+    $gb->update(['vorgesetzter_id' => $geschaeftsfuehrer->id]);
+    $abteilung->update(['vorgesetzter_id' => $abteilungsleiterin->id]);
+
+    $policy = new AbwesenheitPolicy;
+
+    expect($policy->manage($geschaeftsfuehrer, $abteilungsleiterin))->toBeTrue();
+});
