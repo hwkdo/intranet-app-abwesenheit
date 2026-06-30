@@ -16,6 +16,49 @@ use function Livewire\Volt\mount;
 use function Livewire\Volt\state;
 use function Livewire\Volt\title;
 
+function syncAbwesenheitVertreter(object $livewire): void
+{
+    if (! $livewire->extendedMode && $livewire->vertreter !== '') {
+        $livewire->email_vertreter = $livewire->vertreter;
+        $livewire->phone_vertreter = $livewire->vertreter;
+        $livewire->d3_vertreter = $livewire->vertreter;
+    }
+}
+
+function buildAbwesenheitStoreData(object $livewire): AbwesenheitStoreData
+{
+    syncAbwesenheitVertreter($livewire);
+
+    $emailDelegate = $livewire->email_delegate;
+    if ($livewire->mailboxMustNotBeDelegated || $livewire->mailboxDelegationNotAllowed) {
+        $emailDelegate = false;
+    }
+
+    $service = app(AbwesenheitService::class);
+    $callDestination = null;
+    if ($livewire->call_forwarding) {
+        $callDestination = $service->resolveCallDestination($livewire->phone_vertreter ?: $livewire->email_vertreter);
+    }
+
+    $start = $livewire->activationMode === 'scheduled' && $livewire->start
+        ? Carbon::parse($livewire->start)->startOfDay()
+        : null;
+    $end = $livewire->end ? Carbon::parse($livewire->end)->endOfDay() : null;
+
+    return new AbwesenheitStoreData(
+        email_vertreter: $livewire->email_vertreter,
+        email_delegate: $emailDelegate,
+        call_forwarding: $livewire->call_forwarding,
+        d3_forwarding: $livewire->d3_forwarding,
+        call_destination: $callDestination,
+        start: $livewire->activationMode === 'now' ? $start : null,
+        end: $end,
+        notice: $livewire->notice !== '' ? $livewire->notice : null,
+        phone_vertreter: $livewire->extendedMode ? $livewire->phone_vertreter : null,
+        d3_vertreter: $livewire->extendedMode ? $livewire->d3_vertreter : null,
+    );
+}
+
 state([
     'userId' => null,
     'abwesenheitStatus' => [],
@@ -86,49 +129,8 @@ $statusUnavailable = computed(fn () => ! empty($this->abwesenheitStatus['fetch_e
 $canConfigure = computed(fn () => $this->outlookStatus === 'disabled'
     && ! ($this->abwesenheitStatus['fetch_errors']['outlook'] ?? false));
 
-$syncVertreter = function (): void {
-    if (! $this->extendedMode && $this->vertreter !== '') {
-        $this->email_vertreter = $this->vertreter;
-        $this->phone_vertreter = $this->vertreter;
-        $this->d3_vertreter = $this->vertreter;
-    }
-};
-
-$buildStoreData = function () use ($syncVertreter): AbwesenheitStoreData {
-    $syncVertreter();
-
-    $emailDelegate = $this->email_delegate;
-    if ($this->mailboxMustNotBeDelegated || $this->mailboxDelegationNotAllowed) {
-        $emailDelegate = false;
-    }
-
-    $service = app(AbwesenheitService::class);
-    $callDestination = null;
-    if ($this->call_forwarding) {
-        $callDestination = $service->resolveCallDestination($this->phone_vertreter ?: $this->email_vertreter);
-    }
-
-    $start = $this->activationMode === 'scheduled' && $this->start
-        ? Carbon::parse($this->start)->startOfDay()
-        : null;
-    $end = $this->end ? Carbon::parse($this->end)->endOfDay() : null;
-
-    return new AbwesenheitStoreData(
-        email_vertreter: $this->email_vertreter,
-        email_delegate: $emailDelegate,
-        call_forwarding: $this->call_forwarding,
-        d3_forwarding: $this->d3_forwarding,
-        call_destination: $callDestination,
-        start: $this->activationMode === 'now' ? $start : null,
-        end: $end,
-        notice: $this->notice !== '' ? $this->notice : null,
-        phone_vertreter: $this->extendedMode ? $this->phone_vertreter : null,
-        d3_vertreter: $this->extendedMode ? $this->d3_vertreter : null,
-    );
-};
-
-$save = function () use ($buildStoreData, $syncVertreter): void {
-    $syncVertreter();
+$save = function (): void {
+    syncAbwesenheitVertreter($this);
     $this->save_warning = null;
     Gate::authorize('abwesenheit.manage', $this->targetUser);
 
@@ -161,7 +163,7 @@ $save = function () use ($buildStoreData, $syncVertreter): void {
             return;
         }
 
-        $payload = $buildStoreData()->toArray();
+        $payload = buildAbwesenheitStoreData($this)->toArray();
         $payload['start'] = Carbon::parse($this->start)->startOfDay()->toIso8601String();
         $payload['end'] = Carbon::parse($this->end)->endOfDay()->toIso8601String();
 
@@ -180,7 +182,7 @@ $save = function () use ($buildStoreData, $syncVertreter): void {
         return;
     }
 
-    $result = app(AbwesenheitService::class)->apply($this->targetUser, $buildStoreData());
+    $result = app(AbwesenheitService::class)->apply($this->targetUser, buildAbwesenheitStoreData($this));
 
     if ($result->warnings !== []) {
         $this->save_warning = implode(' ', $result->warnings);
