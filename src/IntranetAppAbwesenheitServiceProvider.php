@@ -8,6 +8,7 @@ use Hwkdo\IntranetAppAbwesenheit\Commands\ProcessAbwesenheitSchedulesCommand;
 use Hwkdo\IntranetAppAbwesenheit\Policies\AbwesenheitPolicy;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Gate;
+use Livewire\Livewire;
 use Livewire\Volt\Volt;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
@@ -22,6 +23,17 @@ class IntranetAppAbwesenheitServiceProvider extends PackageServiceProvider
             ->hasViews()
             ->hasCommand(ProcessAbwesenheitSchedulesCommand::class)
             ->discoversMigrations();
+    }
+
+    public function bootingPackage(): void
+    {
+        Livewire::addNamespace(
+            namespace: 'intranet-app-abwesenheit',
+            classNamespace: 'Hwkdo\\IntranetAppAbwesenheit\\Livewire',
+            classPath: __DIR__.'/Livewire',
+            classViewPath: __DIR__.'/../resources/views/livewire',
+            viewPath: __DIR__.'/../resources/views/livewire',
+        );
     }
 
     public function boot(): void

@@ -39,6 +39,28 @@ test('isActive returns false when all channels are inactive', function (): void 
     expect($service->isActive($user))->toBeFalse();
 });
 
+test('isActiveFromShow treats outlook scheduled as active', function (): void {
+    $service = app(AbwesenheitService::class);
+
+    expect($service->isActiveFromShow([
+        'outlook' => ['status' => 'scheduled'],
+        'phone' => '',
+        'd3' => ['abwesend' => false],
+        'fetch_errors' => [],
+    ]))->toBeTrue();
+});
+
+test('isActiveFromShow treats unavailable outlook as inactive', function (): void {
+    $service = app(AbwesenheitService::class);
+
+    expect($service->isActiveFromShow([
+        'outlook' => ['status' => 'unavailable'],
+        'phone' => '',
+        'd3' => ['abwesend' => false],
+        'fetch_errors' => ['outlook' => true],
+    ]))->toBeFalse();
+});
+
 test('store data uses phone and d3 vertreter fallbacks', function (): void {
     $data = new AbwesenheitStoreData(
         email_vertreter: 'email.user',

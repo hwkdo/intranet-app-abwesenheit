@@ -1,13 +1,18 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Hwkdo\IntranetAppAbwesenheit;
 
+use Hwkdo\IntranetAppAbwesenheit\Dashboard\AbwesenheitDashboardWidgetProvider;
 use Hwkdo\IntranetAppAbwesenheit\Data\AppSettings;
 use Hwkdo\IntranetAppAbwesenheit\Data\UserSettings;
+use Hwkdo\IntranetAppBase\Interfaces\DashboardWidgetProviderInterface;
 use Hwkdo\IntranetAppBase\Interfaces\IntranetAppInterface;
+use Hwkdo\IntranetAppBase\Interfaces\ProvidesDashboardWidgetsInterface;
 use Illuminate\Support\Collection;
 
-class IntranetAppAbwesenheit implements IntranetAppInterface
+class IntranetAppAbwesenheit implements IntranetAppInterface, ProvidesDashboardWidgetsInterface
 {
     public static function app_name(): string
     {
@@ -47,5 +52,15 @@ class IntranetAppAbwesenheit implements IntranetAppInterface
     public static function mcpServers(): array
     {
         return [];
+    }
+
+    /**
+     * @return array<class-string<DashboardWidgetProviderInterface>>
+     */
+    public static function dashboardWidgetProviders(): array
+    {
+        return [
+            AbwesenheitDashboardWidgetProvider::class,
+        ];
     }
 }

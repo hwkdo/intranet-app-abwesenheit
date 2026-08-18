@@ -1,5 +1,8 @@
 <?php
 
-use Hwkdo\IntranetAppAbwesenheit\Tests\TestCase;
+pest()->extend(Tests\TestCase::class)
+    ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
+    ->in(__DIR__.'/Feature');
 
-uses(TestCase::class)->in(__DIR__);
+pest()->extend(Tests\TestCase::class)
+    ->in(__DIR__.'/Unit');

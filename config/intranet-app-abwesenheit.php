@@ -7,6 +7,7 @@ return [
     'user_model' => env('ABWESENHEIT_USER_MODEL', \App\Models\User::class),
     'gvp_model' => env('ABWESENHEIT_GVP_MODEL', \App\Models\Gvp::class),
     'd3_api' => env('ABWESENHEIT_D3_API', \App\Services\Interfaces\D3ApiInterface::class),
+    'widget_status_cache_seconds' => (int) env('ABWESENHEIT_WIDGET_STATUS_CACHE_SECONDS', 120),
 
     'roles' => [
         'admin' => [

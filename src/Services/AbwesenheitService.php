@@ -116,9 +116,15 @@ class AbwesenheitService
 
     public function isActive(Model $user): bool
     {
-        $status = $this->show($user);
+        return $this->isActiveFromShow($this->show($user));
+    }
 
-        if ($this->isOutlookActive($status['outlook'])) {
+    /**
+     * @param  array{outlook?: mixed, phone?: string, d3?: array{abwesend?: bool, vertreter?: mixed}, fetch_errors?: array<string, bool>}  $status
+     */
+    public function isActiveFromShow(array $status): bool
+    {
+        if ($this->isOutlookActive($status['outlook'] ?? null)) {
             return true;
         }
 
@@ -126,11 +132,7 @@ class AbwesenheitService
             return true;
         }
 
-        if (($status['d3']['abwesend'] ?? false) === true) {
-            return true;
-        }
-
-        return false;
+        return ($status['d3']['abwesend'] ?? false) === true;
     }
 
     public function destroy(Model $user): void
