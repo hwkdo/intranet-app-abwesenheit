@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Hwkdo\IntranetAppAbwesenheit\Policies;
 
+use Hwkdo\IntranetAppAbwesenheit\Support\AbwesenheitUserPreferences;
 use Illuminate\Database\Eloquent\Model;
 
 class AbwesenheitPolicy
@@ -42,6 +43,6 @@ class AbwesenheitPolicy
             return false;
         }
 
-        return (bool) $target->allow_supervisor_mailbox_delegation;
+        return AbwesenheitUserPreferences::allowsSupervisorMailboxDelegationFor($target);
     }
 }

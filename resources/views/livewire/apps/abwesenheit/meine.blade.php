@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Hwkdo\IntranetAppAbwesenheit\Data\AbwesenheitStoreData;
 use Hwkdo\IntranetAppAbwesenheit\Services\AbwesenheitService;
 use Hwkdo\IntranetAppAbwesenheit\Support\AbwesenheitModels;
+use Hwkdo\IntranetAppAbwesenheit\Support\AbwesenheitUserPreferences;
 use Flux\Flux;
 use Hwkdo\IntranetAppAbwesenheit\Enums\AbwesenheitScheduleStatus;
 use Hwkdo\IntranetAppAbwesenheit\Models\AbwesenheitSchedule;
@@ -108,7 +109,7 @@ $mailboxMustNotBeDelegated = computed(fn () => $this->targetUser->beauftragtenwe
 
 $mailboxDelegationNotAllowed = computed(fn () => $this->userId !== null
     && $this->userId !== auth()->id()
-    && ! $this->targetUser->allow_supervisor_mailbox_delegation);
+    && ! AbwesenheitUserPreferences::allowsSupervisorMailboxDelegationFor($this->targetUser));
 
 $outlookStatus = computed(function () {
     $outlook = $this->abwesenheitStatus['outlook'] ?? null;
