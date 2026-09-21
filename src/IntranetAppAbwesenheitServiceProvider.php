@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Hwkdo\IntranetAppAbwesenheit;
 
+use Hwkdo\IntranetAppAbwesenheit\Commands\BackfillMailboxGrantsCommand;
+use Hwkdo\IntranetAppAbwesenheit\Commands\DiagnoseImmediateAbsencesCommand;
 use Hwkdo\IntranetAppAbwesenheit\Commands\ProcessAbwesenheitSchedulesCommand;
 use Hwkdo\IntranetAppAbwesenheit\Policies\AbwesenheitPolicy;
 use Illuminate\Console\Scheduling\Schedule;
@@ -21,7 +23,11 @@ class IntranetAppAbwesenheitServiceProvider extends PackageServiceProvider
             ->name('intranet-app-abwesenheit')
             ->hasConfigFile()
             ->hasViews()
-            ->hasCommand(ProcessAbwesenheitSchedulesCommand::class)
+            ->hasCommands([
+                ProcessAbwesenheitSchedulesCommand::class,
+                BackfillMailboxGrantsCommand::class,
+                DiagnoseImmediateAbsencesCommand::class,
+            ])
             ->discoversMigrations();
     }
 

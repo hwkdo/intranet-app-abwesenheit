@@ -49,7 +49,7 @@ class AbwesenheitScheduleProcessor
         }
 
         try {
-            $this->abwesenheitService->apply($schedule->user, $schedule->storeData());
+            $this->abwesenheitService->apply($schedule->user, $schedule->storeData(), $schedule->id);
             $schedule->update([
                 'status' => AbwesenheitScheduleStatus::Applied,
                 'applied_at' => now(),

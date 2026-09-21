@@ -6,34 +6,28 @@ namespace Hwkdo\IntranetAppAbwesenheit\Services;
 
 use Hwkdo\CiscoPhoneServicesLaravel\Interfaces\AxlServiceInterface;
 use Hwkdo\D3RestLaravel\models\BenutzerAbwesenheit;
+use Hwkdo\HwkAdminLaravel\DTO\GetExchangePermissionOutputDTO;
 use Hwkdo\HwkAdminLaravel\DTO\SetExchangePermissionDTO;
 use Hwkdo\HwkAdminLaravel\HwkAdminService;
 use Hwkdo\IntranetAppAbwesenheit\Data\AbwesenheitApplyResult;
 use Hwkdo\IntranetAppAbwesenheit\Data\AbwesenheitStoreData;
+use Hwkdo\IntranetAppAbwesenheit\Models\MailboxGrant;
 use Hwkdo\IntranetAppAbwesenheit\Support\AbwesenheitModels;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphMailboxServiceInterface;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphOutOfOfficeTemplateServiceInterface;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
+use RuntimeException;
 use Throwable;
 
 class AbwesenheitService
 {
-    public function apply(Model $user, AbwesenheitStoreData $data): AbwesenheitApplyResult
+    public function apply(Model $user, AbwesenheitStoreData $data, ?int $scheduleId = null): AbwesenheitApplyResult
     {
         if ($data->email_delegate) {
-            defer(function () use ($user, $data): void {
-                $delegate = AbwesenheitModels::user()::firstWhere('username', $data->email_vertreter);
-                if (! $delegate) {
-                    return;
-                }
-
-                app(HwkAdminService::class)->setExchangePermission(new SetExchangePermissionDTO(
-                    owner_upn: $user->upn,
-                    delegate_upn: $delegate->upn,
-                    accessRights: 'FullAccess',
-                    action: 'Add'
-                ));
+            defer(function () use ($user, $data, $scheduleId): void {
+                $this->grantMailboxDelegation($user, $data->email_vertreter, $scheduleId);
             });
         }
 
@@ -89,6 +83,104 @@ class AbwesenheitService
         }
 
         return new AbwesenheitApplyResult(warnings: $warnings);
+    }
+
+    public function grantMailboxDelegation(Model $user, string $delegateUsername, ?int $scheduleId = null): void
+    {
+        $delegate = AbwesenheitModels::user()::firstWhere('username', $delegateUsername);
+        if (! $delegate || blank($delegate->upn) || blank($user->upn)) {
+            return;
+        }
+
+        $ownerUpn = (string) $user->upn;
+        $delegateUpn = (string) $delegate->upn;
+
+        $activeGrantExists = MailboxGrant::query()
+            ->active()
+            ->where('user_id', $user->getKey())
+            ->where('delegate_upn', $delegateUpn)
+            ->exists();
+
+        if ($activeGrantExists) {
+            return;
+        }
+
+        $permissions = app(HwkAdminService::class)->getExchangePermission($ownerUpn);
+        if (! $permissions instanceof Collection) {
+            report(new RuntimeException('getExchangePermission did not return a collection for '.$ownerUpn));
+
+            return;
+        }
+
+        $alreadyExisted = $this->delegateHasFullAccess($permissions, $delegateUpn);
+
+        MailboxGrant::query()->create([
+            'user_id' => $user->getKey(),
+            'owner_upn' => $ownerUpn,
+            'delegate_upn' => $delegateUpn,
+            'access_rights' => 'FullAccess',
+            'already_existed' => $alreadyExisted,
+            'schedule_id' => $scheduleId,
+            'granted_at' => now(),
+        ]);
+
+        if ($alreadyExisted) {
+            return;
+        }
+
+        app(HwkAdminService::class)->setExchangePermission(new SetExchangePermissionDTO(
+            owner_upn: $ownerUpn,
+            delegate_upn: $delegateUpn,
+            accessRights: 'FullAccess',
+            action: 'Add'
+        ));
+    }
+
+    public function revokeMailboxGrants(Model $user): void
+    {
+        $grants = MailboxGrant::query()
+            ->active()
+            ->where('user_id', $user->getKey())
+            ->get();
+
+        if ($grants->isEmpty()) {
+            return;
+        }
+
+        $hwkAdmin = app(HwkAdminService::class);
+
+        foreach ($grants as $grant) {
+            if (! $grant->already_existed) {
+                $hwkAdmin->setExchangePermission(new SetExchangePermissionDTO(
+                    owner_upn: $grant->owner_upn,
+                    delegate_upn: $grant->delegate_upn,
+                    accessRights: $grant->access_rights,
+                    action: 'Remove'
+                ));
+            }
+
+            $grant->update(['revoked_at' => now()]);
+        }
+    }
+
+    /**
+     * @param  Collection<int, mixed>  $permissions
+     */
+    private function delegateHasFullAccess(Collection $permissions, string $delegateUpn): bool
+    {
+        return $permissions->contains(function (mixed $permission) use ($delegateUpn): bool {
+            if (! $permission instanceof GetExchangePermissionOutputDTO) {
+                return false;
+            }
+
+            if (strcasecmp($permission->User, $delegateUpn) !== 0) {
+                return false;
+            }
+
+            return collect($permission->AccessRights)->contains(
+                fn (mixed $right): bool => strcasecmp((string) $right, 'FullAccess') === 0
+            );
+        });
     }
 
     /**
@@ -169,7 +261,7 @@ class AbwesenheitService
 
         defer(function () use ($user): void {
             try {
-                app(HwkAdminService::class)->resetExchangePermission($user->upn);
+                $this->revokeMailboxGrants($user);
             } catch (Throwable $exception) {
                 report($exception);
             }
