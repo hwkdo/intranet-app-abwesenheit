@@ -74,9 +74,10 @@ class AbwesenheitService
                     raw: true
                 );
 
-                $isUnexpectedD3Response = ! is_array($d3Response)
-                    || ! array_key_exists('userId', $d3Response)
-                    || ! array_key_exists('isAbsent', $d3Response);
+                // D3 liefert bei erfolgreichem Schreiben oft 200 mit leerem Body (null).
+                $isUnexpectedD3Response = is_array($d3Response)
+                    ? (! array_key_exists('userId', $d3Response) || ! array_key_exists('isAbsent', $d3Response))
+                    : $d3Response !== null;
 
                 if ($isUnexpectedD3Response) {
                     $warnings[] = 'Abwesenheit wurde gesetzt, aber Vertretung in d3 ist in diesem Zeitraum nicht moeglich.';
