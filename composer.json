@@ -25,7 +25,7 @@
         "hwkdo/cisco-phone-services-laravel": "dev-main || ^0",
         "hwkdo/d3-rest-laravel": "dev-main || ^1",
         "hwkdo/hwk-admin-laravel": "dev-main || ^1",
-        "hwkdo/ms-graph-laravel": "dev-main || ^1",
+        "hwkdo/ms-graph-laravel": "dev-main || ^2.0",
         "laravel/passport": "^13.0",
         "spatie/laravel-permission": "^8.0",
         "livewire/volt": "^1.6.7"
