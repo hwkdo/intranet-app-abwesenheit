@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Models\User;
 use Hwkdo\IntranetAppAbwesenheit\Data\AbwesenheitApplyResult;
 use Hwkdo\IntranetAppAbwesenheit\Services\AbwesenheitService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Passport\Passport;
 use Spatie\Permission\Models\Permission;
 
@@ -13,8 +12,6 @@ use function Pest\Laravel\deleteJson;
 use function Pest\Laravel\getJson;
 use function Pest\Laravel\mock;
 use function Pest\Laravel\postJson;
-
-uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
     Permission::findOrCreate('api-manage-out-of-office');

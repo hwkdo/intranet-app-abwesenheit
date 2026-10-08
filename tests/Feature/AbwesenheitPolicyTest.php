@@ -7,9 +7,6 @@ use App\Models\User;
 use Hwkdo\IntranetAppAbwesenheit\Data\UserSettings;
 use Hwkdo\IntranetAppAbwesenheit\Policies\AbwesenheitPolicy;
 use Hwkdo\IntranetAppAbwesenheit\Support\AbwesenheitUserPreferences;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-
-uses(RefreshDatabase::class);
 
 test('user can manage own abwesenheit', function (): void {
     $user = User::factory()->create(['active' => true]);

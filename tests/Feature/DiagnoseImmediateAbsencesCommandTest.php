@@ -7,11 +7,8 @@ use Hwkdo\IntranetAppAbwesenheit\Enums\AbwesenheitScheduleStatus;
 use Hwkdo\IntranetAppAbwesenheit\Models\AbwesenheitSchedule;
 use Hwkdo\IntranetAppAbwesenheit\Models\MailboxGrant;
 use Hwkdo\MsGraphLaravel\Models\OutOfOfficeStatus;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 
 use function Pest\Laravel\artisan;
-
-uses(RefreshDatabase::class);
 
 test('diagnose lists ooo-cache absences without applied schedule and without grant', function (): void {
     $candidate = User::factory()->create(['username' => 'diag.candidate', 'active' => true]);

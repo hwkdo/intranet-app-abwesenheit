@@ -9,13 +9,10 @@ use Hwkdo\IntranetAppAbwesenheit\IntranetAppAbwesenheit;
 use Hwkdo\IntranetAppAbwesenheit\Models\AbwesenheitSchedule;
 use Hwkdo\IntranetAppAbwesenheit\Services\AbwesenheitService;
 use Hwkdo\IntranetAppBase\Services\DashboardWidgetRegistry;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 
 use function Pest\Laravel\mock;
-
-uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
     Permission::findOrCreate('see-app-abwesenheit', 'web');

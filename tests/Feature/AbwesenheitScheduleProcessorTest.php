@@ -3,17 +3,15 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use Hwkdo\IntranetAppAbwesenheit\Data\AbwesenheitApplyResult;
 use Hwkdo\IntranetAppAbwesenheit\Data\AbwesenheitStoreData;
 use Hwkdo\IntranetAppAbwesenheit\Enums\AbwesenheitScheduleStatus;
 use Hwkdo\IntranetAppAbwesenheit\Models\AbwesenheitSchedule;
 use Hwkdo\IntranetAppAbwesenheit\Services\AbwesenheitScheduleProcessor;
 use Hwkdo\IntranetAppAbwesenheit\Services\AbwesenheitService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 
 use function Pest\Laravel\mock;
-
-uses(RefreshDatabase::class);
 
 test('processor applies pending schedule when start is due', function (): void {
     Carbon::setTestNow('2026-06-10 08:00:00');
@@ -36,7 +34,7 @@ test('processor applies pending schedule when start is due', function (): void {
     ]);
 
     $abwesenheit = mock(AbwesenheitService::class);
-    $abwesenheit->shouldReceive('apply')->once();
+    $abwesenheit->shouldReceive('apply')->once()->andReturn(new AbwesenheitApplyResult);
     $abwesenheit->shouldReceive('isActive')->andReturn(false);
 
     $processor = new AbwesenheitScheduleProcessor($abwesenheit);

@@ -6,11 +6,8 @@ use App\Models\User;
 use Hwkdo\IntranetAppAbwesenheit\Enums\AbwesenheitScheduleStatus;
 use Hwkdo\IntranetAppAbwesenheit\Models\AbwesenheitSchedule;
 use Hwkdo\IntranetAppAbwesenheit\Models\MailboxGrant;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 
 use function Pest\Laravel\artisan;
-
-uses(RefreshDatabase::class);
 
 test('backfill creates grants for applied schedules with email_delegate', function (): void {
     $owner = User::factory()->create(['username' => 'backfill.owner', 'active' => true]);
