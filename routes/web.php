@@ -5,7 +5,6 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
-
 Route::middleware(['web', 'auth', 'can:see-app-abwesenheit'])->group(function (): void {
     Volt::route('apps/abwesenheit', 'apps.abwesenheit.index')->name('apps.abwesenheit.index');
 
@@ -18,13 +17,6 @@ Route::middleware(['web', 'auth', 'can:see-app-abwesenheit'])->group(function ()
     Volt::route('apps/abwesenheit/info', 'apps.abwesenheit.info')->name('apps.abwesenheit.info');
 });
 
-
 Route::middleware(['web', 'auth', 'can:manage-app-abwesenheit'])->group(function (): void {
     Volt::route('apps/abwesenheit/admin', 'apps.abwesenheit.admin.index')->name('apps.abwesenheit.admin.index');
 });
-
-Route::middleware(['web', 'auth', 'can:manage-app-abwesenheit'])->group(function (): void {
-    Volt::route('apps/abwesenheit/admin/background-activities', 'apps.abwesenheit.admin.background-activities')
-        ->name('apps.abwesenheit.admin.background-activities');
-});
-

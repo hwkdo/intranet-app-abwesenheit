@@ -17,7 +17,6 @@
     $defaultNavItems = array_merge($defaultNavItems, [
         ['label' => 'Meine Einstellungen', 'href' => route('apps.abwesenheit.settings.user'), 'icon' => 'cog-6-tooth', 'description' => 'Postfach-Delegierung bei Abwesenheit', 'buttonText' => 'Einstellungen öffnen'],
         ['label' => 'App-Info', 'href' => route('apps.abwesenheit.info'), 'icon' => 'information-circle', 'description' => 'Installierte Version und Release-Historie', 'buttonText' => 'App-Info anzeigen'],
-        ['label' => 'Hintergrund', 'href' => route('apps.abwesenheit.admin.background-activities'), 'icon' => 'clock', 'description' => 'Geplante Tasks, Jobs und Versand', 'buttonText' => 'Hintergrund öffnen', 'permission' => 'manage-app-abwesenheit'],
         ['label' => 'Admin', 'href' => route('apps.abwesenheit.admin.index'), 'icon' => 'shield-check', 'description' => 'Administrationsbereich verwalten', 'buttonText' => 'Admin öffnen', 'permission' => 'manage-app-abwesenheit'],
     ]);
 
