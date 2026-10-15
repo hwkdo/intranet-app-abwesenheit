@@ -22,3 +22,9 @@ Route::middleware(['web', 'auth', 'can:see-app-abwesenheit'])->group(function ()
 Route::middleware(['web', 'auth', 'can:manage-app-abwesenheit'])->group(function (): void {
     Volt::route('apps/abwesenheit/admin', 'apps.abwesenheit.admin.index')->name('apps.abwesenheit.admin.index');
 });
+
+Route::middleware(['web', 'auth', 'can:manage-app-abwesenheit'])->group(function (): void {
+    Volt::route('apps/abwesenheit/admin/background-activities', 'apps.abwesenheit.admin.background-activities')
+        ->name('apps.abwesenheit.admin.background-activities');
+});
+

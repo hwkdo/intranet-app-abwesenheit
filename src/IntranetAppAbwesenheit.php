@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Hwkdo\IntranetAppAbwesenheit;
 
+use Hwkdo\IntranetAppBase\Interfaces\ProvidesBackgroundActivitiesInterface;
+use Hwkdo\IntranetAppAbwesenheit\Background\AbwesenheitBackgroundActivities;
 use Hwkdo\IntranetAppAbwesenheit\Dashboard\AbwesenheitDashboardWidgetProvider;
 use Hwkdo\IntranetAppAbwesenheit\Data\AppSettings;
 use Hwkdo\IntranetAppAbwesenheit\Data\UserSettings;
@@ -12,7 +14,7 @@ use Hwkdo\IntranetAppBase\Interfaces\IntranetAppInterface;
 use Hwkdo\IntranetAppBase\Interfaces\ProvidesDashboardWidgetsInterface;
 use Illuminate\Support\Collection;
 
-class IntranetAppAbwesenheit implements IntranetAppInterface, ProvidesDashboardWidgetsInterface
+class IntranetAppAbwesenheit implements IntranetAppInterface, ProvidesBackgroundActivitiesInterface, ProvidesDashboardWidgetsInterface
 {
     public static function app_name(): string
     {
@@ -63,4 +65,11 @@ class IntranetAppAbwesenheit implements IntranetAppInterface, ProvidesDashboardW
             AbwesenheitDashboardWidgetProvider::class,
         ];
     }
+
+    public static function backgroundActivities(): array
+    {
+        return AbwesenheitBackgroundActivities::definitions();
+    }
+
+
 }

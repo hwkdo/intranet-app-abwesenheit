@@ -8,7 +8,6 @@ use Hwkdo\IntranetAppAbwesenheit\Commands\BackfillMailboxGrantsCommand;
 use Hwkdo\IntranetAppAbwesenheit\Commands\DiagnoseImmediateAbsencesCommand;
 use Hwkdo\IntranetAppAbwesenheit\Commands\ProcessAbwesenheitSchedulesCommand;
 use Hwkdo\IntranetAppAbwesenheit\Policies\AbwesenheitPolicy;
-use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
 use Livewire\Volt\Volt;
@@ -55,9 +54,6 @@ class IntranetAppAbwesenheitServiceProvider extends PackageServiceProvider
         $this->loadRoutesFrom(__DIR__.'/../routes/web.php');
         $this->loadRoutesFrom(__DIR__.'/../routes/api.php');
 
-        $this->app->resolving(Schedule::class, function (): void {
-            require __DIR__.'/../routes/console.php';
-        });
     }
 
     protected function registerAbwesenheitGates(): void
