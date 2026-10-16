@@ -27,7 +27,7 @@ function abwesenheitStatusWidgetUser(): User
 }
 
 /**
- * @param  array{outlook?: mixed, phone?: string, d3?: array{abwesend?: bool, vertreter?: mixed}, fetch_errors?: array<string, bool>}  $status
+ * @param  array{outlook?: mixed, phone?: string, d3?: array{abwesend?: bool, vertreter?: mixed}, mailbox?: array{delegated?: bool, delegates?: list<array{upn: string, name: string}>}, fetch_errors?: array<string, bool>}  $status
  */
 function mockAbwesenheitShow(array $status): AbwesenheitService
 {
@@ -36,6 +36,7 @@ function mockAbwesenheitShow(array $status): AbwesenheitService
         'outlook' => $status['outlook'] ?? ['status' => 'disabled'],
         'phone' => $status['phone'] ?? '',
         'd3' => $status['d3'] ?? ['abwesend' => false, 'vertreter' => null],
+        'mailbox' => $status['mailbox'] ?? ['delegated' => false, 'delegates' => []],
         'fetch_errors' => $status['fetch_errors'] ?? [],
     ]);
 
@@ -76,11 +77,29 @@ test('widget zeigt anwesend ohne einrichtungsformular', function (): void {
         ->assertSee('Outlook')
         ->assertSee('Telefon')
         ->assertSee('d3')
+        ->assertSee('Postfach')
         ->assertSee('Zur App')
         ->assertDontSee('Wieder anwesend')
         ->assertDontSee('Jetzt aktivieren')
         ->assertDontSee('Abwesenheit einrichten')
         ->assertDontSee('Vertretung');
+});
+
+test('widget zeigt aktive postfach-delegierung', function (): void {
+    $user = abwesenheitStatusWidgetUser();
+    mockAbwesenheitShow([
+        'mailbox' => [
+            'delegated' => true,
+            'delegates' => [
+                ['upn' => 'vertreter@example.test', 'name' => 'Anna Vertreter'],
+            ],
+        ],
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('intranet-app-abwesenheit::apps.abwesenheit.widgets.mein-abwesenheitsstatus')
+        ->assertSee('Postfach')
+        ->assertSee('Delegiert an Anna Vertreter');
 });
 
 test('widget zeigt kanalstatus und vertretung bei aktiver abwesenheit', function (): void {
@@ -130,12 +149,14 @@ test('widget deaktiviert abwesenheit per klick', function (): void {
             'outlook' => ['status' => 'alwaysEnabled'],
             'phone' => '',
             'd3' => ['abwesend' => false, 'vertreter' => null],
+            'mailbox' => ['delegated' => false, 'delegates' => []],
             'fetch_errors' => [],
         ],
         [
             'outlook' => ['status' => 'disabled'],
             'phone' => '',
             'd3' => ['abwesend' => false, 'vertreter' => null],
+            'mailbox' => ['delegated' => false, 'delegates' => []],
             'fetch_errors' => [],
         ],
     );

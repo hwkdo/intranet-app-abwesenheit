@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\User;
 use App\Services\Interfaces\D3ApiInterface;
 use Hwkdo\IntranetAppAbwesenheit\Data\AbwesenheitStoreData;
+use Hwkdo\IntranetAppAbwesenheit\Models\MailboxGrant;
 use Hwkdo\IntranetAppAbwesenheit\Services\AbwesenheitService;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphMailboxServiceInterface;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphOutOfOfficeTemplateServiceInterface;
@@ -98,6 +99,81 @@ test('resolveCallDestination extracts extension from telefon', function (): void
     $service = app(AbwesenheitService::class);
 
     expect($service->resolveCallDestination('tel.user'))->toBe('429');
+});
+
+test('show includes active mailbox grants with delegate name', function (): void {
+    $owner = User::factory()->create([
+        'username' => 'mailbox.owner',
+        'vorname' => 'Owner',
+        'nachname' => 'User',
+        'active' => true,
+        'linepattern' => null,
+    ]);
+    $delegate = User::factory()->create([
+        'username' => 'mailbox.delegate',
+        'vorname' => 'Max',
+        'nachname' => 'Vertreter',
+        'active' => true,
+    ]);
+
+    MailboxGrant::query()->create([
+        'user_id' => $owner->id,
+        'owner_upn' => $owner->upn,
+        'delegate_upn' => $delegate->upn,
+        'access_rights' => 'FullAccess',
+        'already_existed' => false,
+        'granted_at' => now(),
+    ]);
+
+    MailboxGrant::query()->create([
+        'user_id' => $owner->id,
+        'owner_upn' => $owner->upn,
+        'delegate_upn' => 'revoked.user@example.test',
+        'access_rights' => 'FullAccess',
+        'already_existed' => false,
+        'granted_at' => now()->subDay(),
+        'revoked_at' => now(),
+    ]);
+
+    $mailbox = mock(MsGraphMailboxServiceInterface::class);
+    $mailbox->shouldReceive('getAutoReplySettings')->once()->andReturn(['status' => 'disabled']);
+    app()->instance(MsGraphMailboxServiceInterface::class, $mailbox);
+
+    $d3 = mock(D3ApiInterface::class);
+    $d3->shouldReceive('getUserIdByUsername')->once()->andReturn('d3-user-id');
+    $d3->shouldReceive('getUserAbsence')->once()->andReturn(['abwesend' => false, 'vertreter' => null]);
+    app()->instance(D3ApiInterface::class, $d3);
+    config(['intranet-app-abwesenheit.d3_api' => D3ApiInterface::class]);
+
+    $status = app(AbwesenheitService::class)->show($owner);
+
+    expect($status['mailbox']['delegated'])->toBeTrue()
+        ->and($status['mailbox']['delegates'])->toHaveCount(1)
+        ->and($status['mailbox']['delegates'][0]['upn'])->toBe($delegate->upn)
+        ->and($status['mailbox']['delegates'][0]['name'])->toBe($delegate->name);
+});
+
+test('show reports no mailbox delegation without active grants', function (): void {
+    $owner = User::factory()->create([
+        'username' => 'mailbox.none',
+        'active' => true,
+        'linepattern' => null,
+    ]);
+
+    $mailbox = mock(MsGraphMailboxServiceInterface::class);
+    $mailbox->shouldReceive('getAutoReplySettings')->once()->andReturn(['status' => 'disabled']);
+    app()->instance(MsGraphMailboxServiceInterface::class, $mailbox);
+
+    $d3 = mock(D3ApiInterface::class);
+    $d3->shouldReceive('getUserIdByUsername')->once()->andReturn('d3-user-id');
+    $d3->shouldReceive('getUserAbsence')->once()->andReturn(['abwesend' => false]);
+    app()->instance(D3ApiInterface::class, $d3);
+    config(['intranet-app-abwesenheit.d3_api' => D3ApiInterface::class]);
+
+    $status = app(AbwesenheitService::class)->show($owner);
+
+    expect($status['mailbox']['delegated'])->toBeFalse()
+        ->and($status['mailbox']['delegates'])->toBe([]);
 });
 
 test('apply treats empty d3 success body as ok without warning', function (): void {

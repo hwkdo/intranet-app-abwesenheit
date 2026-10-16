@@ -65,7 +65,7 @@ test('legacy store payload delegates to abwesenheit service and returns expected
         ]);
 });
 
-test('show returns outlook phone and d3 from service', function (): void {
+test('show returns outlook phone d3 and mailbox from service', function (): void {
     $service = mock(AbwesenheitService::class);
     $service->shouldReceive('show')
         ->once()
@@ -73,6 +73,7 @@ test('show returns outlook phone and d3 from service', function (): void {
             'outlook' => ['status' => 'disabled'],
             'phone' => '',
             'd3' => ['abwesend' => false],
+            'mailbox' => ['delegated' => false, 'delegates' => []],
             'fetch_errors' => [],
         ]);
 
@@ -80,7 +81,7 @@ test('show returns outlook phone and d3 from service', function (): void {
 
     getJson('/api/abwesenheit/'.$this->target->username)
         ->assertOk()
-        ->assertJsonStructure(['outlook', 'phone', 'd3']);
+        ->assertJsonStructure(['outlook', 'phone', 'd3', 'mailbox']);
 });
 
 test('destroy delegates to service and returns message', function (): void {

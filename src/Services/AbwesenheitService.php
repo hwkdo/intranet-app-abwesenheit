@@ -188,6 +188,7 @@ class AbwesenheitService
      *     outlook: mixed,
      *     phone: string,
      *     d3: array{abwesend: bool, vertreter: array<string, string>|null},
+     *     mailbox: array{delegated: bool, delegates: list<array{upn: string, name: string}>},
      *     fetch_errors: array{outlook?: bool, phone?: bool, d3?: bool}
      * }
      */
@@ -198,11 +199,13 @@ class AbwesenheitService
         $outlook = $this->fetchOutlookStatus($user, $fetchErrors);
         $phone = $this->fetchPhoneStatus($user, $fetchErrors);
         $d3 = $this->fetchD3Status($user, $fetchErrors);
+        $mailbox = $this->fetchMailboxStatus($user);
 
         return [
             'outlook' => $outlook,
             'phone' => $phone,
             'd3' => $d3,
+            'mailbox' => $mailbox,
             'fetch_errors' => $fetchErrors,
         ];
     }
@@ -358,6 +361,35 @@ class AbwesenheitService
                 'vertreter' => null,
             ];
         }
+    }
+
+    /**
+     * @return array{delegated: bool, delegates: list<array{upn: string, name: string}>}
+     */
+    private function fetchMailboxStatus(Model $user): array
+    {
+        $grants = MailboxGrant::query()
+            ->active()
+            ->where('user_id', $user->getKey())
+            ->orderBy('granted_at')
+            ->get();
+
+        $delegates = $grants->map(function (MailboxGrant $grant): array {
+            $username = str($grant->delegate_upn)->before('@')->value();
+            $delegate = $username !== ''
+                ? AbwesenheitModels::user()::firstWhere('username', $username)
+                : null;
+
+            return [
+                'upn' => $grant->delegate_upn,
+                'name' => filled($delegate?->name) ? (string) $delegate->name : $grant->delegate_upn,
+            ];
+        })->values()->all();
+
+        return [
+            'delegated' => $delegates !== [],
+            'delegates' => $delegates,
+        ];
     }
 
     /**

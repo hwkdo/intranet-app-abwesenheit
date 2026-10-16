@@ -12,6 +12,7 @@ use Hwkdo\IntranetAppAbwesenheit\Models\AbwesenheitSchedule;
 use Hwkdo\IntranetAppAbwesenheit\Services\AbwesenheitScheduleProcessor;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use function Livewire\Volt\computed;
 use function Livewire\Volt\mount;
 use function Livewire\Volt\state;
@@ -138,13 +139,19 @@ $save = function (): void {
     $this->validate([
         'vertreter' => 'required_if:extendedMode,false',
         'email_vertreter' => 'required_if:extendedMode,true',
-        'phone_vertreter' => 'required_if:extendedMode,true',
-        'd3_vertreter' => 'required_if:extendedMode,true',
+        'phone_vertreter' => [
+            Rule::requiredIf(fn (): bool => $this->extendedMode && $this->call_forwarding),
+        ],
+        'd3_vertreter' => [
+            Rule::requiredIf(fn (): bool => $this->extendedMode && $this->d3_forwarding),
+        ],
         'end' => 'nullable|date',
         'start' => 'required_if:activationMode,scheduled|nullable|date|after:today',
     ], [
         'start.required_if' => 'Bitte geben Sie ein Startdatum an.',
         'start.after' => 'Das Startdatum muss in der Zukunft liegen.',
+        'phone_vertreter.required' => 'Bitte wählen Sie einen Telefon-Vertreter.',
+        'd3_vertreter.required' => 'Bitte wählen Sie einen d3-Vertreter.',
     ]);
 
     if ($this->activationMode === 'scheduled') {
@@ -222,7 +229,7 @@ $cancelSchedule = function (int $scheduleId): void {
 <div>
 <x-intranet-app-abwesenheit::abwesenheit-layout
     :heading="'Abwesenheit für '.$this->targetUser->name"
-    subheading="Outlook, Telefon und d3"
+    subheading="Outlook, Telefon, d3 und Postfach"
 >
     <div class="space-y-6" wire:loading.delay.class="opacity-60" wire:target="save,remove,cancelSchedule">
         @if($this->save_warning)
@@ -267,6 +274,26 @@ $cancelSchedule = function (int $scheduleId): void {
                 </flux:callout>
             @else
                 <flux:callout variant="success" icon="check-circle">Keine d3 Postfachumleitung eingerichtet</flux:callout>
+            @endif
+
+            @php
+                $mailboxDelegates = $this->abwesenheitStatus['mailbox']['delegates'] ?? [];
+                $mailboxDelegated = (bool) ($this->abwesenheitStatus['mailbox']['delegated'] ?? false);
+                $mailboxDelegateNames = collect($mailboxDelegates)
+                    ->pluck('name')
+                    ->filter()
+                    ->implode(', ');
+            @endphp
+            @if($mailboxDelegated)
+                <flux:callout variant="warning" icon="envelope">
+                    @if($mailboxDelegateNames !== '')
+                        Postfach delegiert an {{ $mailboxDelegateNames }}
+                    @else
+                        Postfach-Delegierung aktiv
+                    @endif
+                </flux:callout>
+            @else
+                <flux:callout variant="success" icon="check-circle">Keine Postfach-Delegierung eingerichtet</flux:callout>
             @endif
         </div>
 
@@ -321,7 +348,26 @@ $cancelSchedule = function (int $scheduleId): void {
 
                     <flux:textarea wire:model="notice" label="Zusätzlicher Hinweis im Abwesenheitstext (optional)" />
 
-                    <flux:switch wire:model="extendedMode" label="Erweitert" description="Getrennte Vertreter für E-Mail, Telefon und d3" />
+                    <flux:switch
+                        wire:model.live="extendedMode"
+                        label="Erweitert"
+                        description="Getrennte Vertreter für E-Mail, Telefon und d3"
+                        align="left"
+                    />
+
+                    <flux:fieldset>
+                        <flux:legend>Kanäle</flux:legend>
+                        <div class="space-y-3">
+                            <flux:switch wire:model.live="call_forwarding" label="Telefon umleiten" align="left" />
+                            <flux:switch
+                                wire:model.live="email_delegate"
+                                label="E-Mail Postfach bereitstellen"
+                                align="left"
+                                :disabled="$this->mailboxMustNotBeDelegated || $this->mailboxDelegationNotAllowed"
+                            />
+                            <flux:switch wire:model.live="d3_forwarding" label="d3 Postfach umleiten" align="left" />
+                        </div>
+                    </flux:fieldset>
 
                     <div
                         x-show="! $wire.extendedMode"
@@ -349,28 +395,22 @@ $cancelSchedule = function (int $scheduleId): void {
                                     <flux:select.option value="{{ $username }}">{{ $name }}</flux:select.option>
                                 @endforeach
                             </flux:select>
-                            <flux:select wire:model="phone_vertreter" label="Telefon" variant="listbox" searchable placeholder="Bitte wählen" required>
-                                <flux:select.option value="">Bitte wählen</flux:select.option>
-                                @foreach($this->users as $username => $name)
-                                    <flux:select.option value="{{ $username }}">{{ $name }}</flux:select.option>
-                                @endforeach
-                            </flux:select>
-                            <flux:select wire:model="d3_vertreter" label="d3" variant="listbox" searchable placeholder="Bitte wählen" required>
-                                <flux:select.option value="">Bitte wählen</flux:select.option>
-                                @foreach($this->users as $username => $name)
-                                    <flux:select.option value="{{ $username }}">{{ $name }}</flux:select.option>
-                                @endforeach
-                            </flux:select>
-                    </div>
-
-                    <div class="grid gap-4 md:grid-cols-3">
-                        <flux:switch wire:model="call_forwarding" label="Telefon umleiten" />
-                        <flux:switch
-                            wire:model="email_delegate"
-                            label="E-Mail Postfach bereitstellen"
-                            :disabled="$this->mailboxMustNotBeDelegated || $this->mailboxDelegationNotAllowed"
-                        />
-                        <flux:switch wire:model="d3_forwarding" label="d3 Postfach umleiten" />
+                            @if($call_forwarding)
+                                <flux:select wire:model="phone_vertreter" label="Telefon" variant="listbox" searchable placeholder="Bitte wählen" required>
+                                    <flux:select.option value="">Bitte wählen</flux:select.option>
+                                    @foreach($this->users as $username => $name)
+                                        <flux:select.option value="{{ $username }}">{{ $name }}</flux:select.option>
+                                    @endforeach
+                                </flux:select>
+                            @endif
+                            @if($d3_forwarding)
+                                <flux:select wire:model="d3_vertreter" label="d3" variant="listbox" searchable placeholder="Bitte wählen" required>
+                                    <flux:select.option value="">Bitte wählen</flux:select.option>
+                                    @foreach($this->users as $username => $name)
+                                        <flux:select.option value="{{ $username }}">{{ $name }}</flux:select.option>
+                                    @endforeach
+                                </flux:select>
+                            @endif
                     </div>
 
                     @if($this->mailboxMustNotBeDelegated)

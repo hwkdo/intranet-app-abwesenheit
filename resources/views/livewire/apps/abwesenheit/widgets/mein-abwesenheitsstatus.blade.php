@@ -24,6 +24,7 @@ new class extends Component
      *     outlook: array{status: string, scheduledEndDateTime: mixed},
      *     phone: string,
      *     d3: array{abwesend: bool, vertreter: array<string, string>|null, vertreter_name: string},
+     *     mailbox: array{delegated: bool, delegate_names: string},
      *     fetch_errors: array{outlook: bool, phone: bool, d3: bool}
      * }
      */
@@ -150,18 +151,21 @@ new class extends Component
     }
 
     /**
-     * @param  array{outlook?: mixed, phone?: mixed, d3?: mixed, fetch_errors?: mixed}  $raw
+     * @param  array{outlook?: mixed, phone?: mixed, d3?: mixed, mailbox?: mixed, fetch_errors?: mixed}  $raw
      * @return array{
      *     outlook: array{status: string, scheduledEndDateTime: mixed},
      *     phone: string,
      *     d3: array{abwesend: bool, vertreter: array<string, string>|null, vertreter_name: string},
+     *     mailbox: array{delegated: bool, delegate_names: string},
      *     fetch_errors: array{outlook: bool, phone: bool, d3: bool}
      * }
      */
     private function normalizeStatus(array $raw): array
     {
         $d3 = is_array($raw['d3'] ?? null) ? $raw['d3'] : [];
+        $mailbox = is_array($raw['mailbox'] ?? null) ? $raw['mailbox'] : [];
         $errors = is_array($raw['fetch_errors'] ?? null) ? $raw['fetch_errors'] : [];
+        $delegates = is_array($mailbox['delegates'] ?? null) ? $mailbox['delegates'] : [];
 
         return [
             'outlook' => $this->normalizeOutlook($raw['outlook'] ?? null),
@@ -170,6 +174,13 @@ new class extends Component
                 'abwesend' => (bool) ($d3['abwesend'] ?? false),
                 'vertreter' => is_array($d3['vertreter'] ?? null) ? $d3['vertreter'] : null,
                 'vertreter_name' => $this->formatD3VertreterName($d3['vertreter'] ?? null),
+            ],
+            'mailbox' => [
+                'delegated' => (bool) ($mailbox['delegated'] ?? false),
+                'delegate_names' => collect($delegates)
+                    ->pluck('name')
+                    ->filter()
+                    ->implode(', '),
             ],
             'fetch_errors' => [
                 'outlook' => (bool) ($errors['outlook'] ?? false),
@@ -232,13 +243,14 @@ new class extends Component
             <flux:skeleton class="h-10 w-full rounded-md" />
             <flux:skeleton class="h-10 w-full rounded-md" />
             <flux:skeleton class="h-10 w-full rounded-md" />
+            <flux:skeleton class="h-10 w-full rounded-md" />
         </div>
     </flux:card>
 @endplaceholder
 
 <x-intranet-app-base::dashboard.widget-card
     title="Mein Abwesenheitsstatus"
-    description="Outlook, Telefon und d3"
+    description="Outlook, Telefon, d3 und Postfach"
 >
     <div class="flex items-center justify-between gap-3">
         @if($this->overallState === 'absent')
@@ -306,6 +318,22 @@ new class extends Component
                 <div class="mt-1 text-xs text-zinc-500 dark:text-white/70">Vertretung: {{ $this->d3VertreterName() }}</div>
             @elseif($this->status['d3']['abwesend'])
                 <div class="mt-1 text-xs text-zinc-500 dark:text-white/70">Kein Vertreter hinterlegt</div>
+            @endif
+        </div>
+
+        <div class="rounded-md border border-zinc-200 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800/40">
+            <div class="flex items-start justify-between gap-3">
+                <div class="font-medium">Postfach</div>
+                @if($this->status['mailbox']['delegated'])
+                    <flux:badge color="amber" size="sm">Aktiv</flux:badge>
+                @else
+                    <flux:badge color="zinc" size="sm">Aus</flux:badge>
+                @endif
+            </div>
+            @if($this->status['mailbox']['delegated'] && $this->status['mailbox']['delegate_names'] !== '')
+                <div class="mt-1 text-xs text-zinc-500 dark:text-white/70">Delegiert an {{ $this->status['mailbox']['delegate_names'] }}</div>
+            @elseif($this->status['mailbox']['delegated'])
+                <div class="mt-1 text-xs text-zinc-500 dark:text-white/70">Delegierung aktiv</div>
             @endif
         </div>
     </div>
