@@ -85,11 +85,15 @@ new class extends Component
         abort_unless($user !== null, 403);
         Gate::authorize('abwesenheit.manage', $user);
 
-        app(AbwesenheitService::class)->destroy($user);
+        $result = app(AbwesenheitService::class)->destroy($user);
         app(AbwesenheitScheduleProcessor::class)->markEndedEarlyForUser((int) $user->id);
 
         Cache::forget($this->statusCacheKey((int) $user->id));
         $this->forgetComputedStatus();
+
+        if ($result->warnings !== []) {
+            Flux::toast(text: implode(' ', $result->warnings), variant: 'warning');
+        }
 
         Flux::toast(text: 'Abwesenheit wurde deaktiviert.', variant: 'success');
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Hwkdo\IntranetAppAbwesenheit\Services;
 
+use Hwkdo\IntranetAppAbwesenheit\Data\AbwesenheitApplyResult;
 use Hwkdo\IntranetAppAbwesenheit\Enums\AbwesenheitScheduleStatus;
 use Hwkdo\IntranetAppAbwesenheit\Models\AbwesenheitSchedule;
 use Throwable;
@@ -49,11 +50,11 @@ class AbwesenheitScheduleProcessor
         }
 
         try {
-            $this->abwesenheitService->apply($schedule->user, $schedule->storeData(), $schedule->id);
+            $result = $this->abwesenheitService->apply($schedule->user, $schedule->storeData(), $schedule->id);
             $schedule->update([
                 'status' => AbwesenheitScheduleStatus::Applied,
                 'applied_at' => now(),
-                'last_error' => null,
+                'last_error' => $this->warningText($result),
             ]);
         } catch (Throwable $exception) {
             report($exception);
@@ -71,14 +72,15 @@ class AbwesenheitScheduleProcessor
         }
 
         try {
+            $result = new AbwesenheitApplyResult;
             if ($this->abwesenheitService->isActive($schedule->user)) {
-                $this->abwesenheitService->destroy($schedule->user);
+                $result = $this->abwesenheitService->destroy($schedule->user);
             }
 
             $schedule->update([
                 'status' => AbwesenheitScheduleStatus::Completed,
                 'completed_at' => now(),
-                'last_error' => null,
+                'last_error' => $this->warningText($result),
             ]);
         } catch (Throwable $exception) {
             report($exception);
@@ -110,6 +112,11 @@ class AbwesenheitScheduleProcessor
                 AbwesenheitScheduleStatus::Applied,
             ])
             ->exists();
+    }
+
+    private function warningText(AbwesenheitApplyResult $result): ?string
+    {
+        return $result->warnings === [] ? null : implode(' ', $result->warnings);
     }
 
     public static function userHasPendingSchedule(int $userId): bool

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use Hwkdo\IntranetAppAbwesenheit\Data\AbwesenheitApplyResult;
 use Hwkdo\IntranetAppAbwesenheit\Dashboard\AbwesenheitDashboardWidgetProvider;
 use Hwkdo\IntranetAppAbwesenheit\Enums\AbwesenheitScheduleStatus;
 use Hwkdo\IntranetAppAbwesenheit\IntranetAppAbwesenheit;
@@ -160,7 +161,7 @@ test('widget deaktiviert abwesenheit per klick', function (): void {
             'fetch_errors' => [],
         ],
     );
-    $service->shouldReceive('destroy')->once();
+    $service->shouldReceive('destroy')->once()->andReturn(new AbwesenheitApplyResult);
 
     Livewire::actingAs($user)
         ->test('intranet-app-abwesenheit::apps.abwesenheit.widgets.mein-abwesenheitsstatus')

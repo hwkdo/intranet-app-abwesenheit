@@ -47,6 +47,41 @@ test('processor applies pending schedule when start is due', function (): void {
     Carbon::setTestNow();
 });
 
+test('processor keeps schedule applied when a channel only warns', function (): void {
+    Carbon::setTestNow('2026-06-10 08:00:00');
+
+    $user = User::factory()->create(['active' => true]);
+    $creator = User::factory()->create(['active' => true]);
+
+    $schedule = AbwesenheitSchedule::query()->create([
+        'user_id' => $user->id,
+        'created_by_user_id' => $creator->id,
+        'starts_at' => now()->subMinute(),
+        'ends_at' => now()->addWeek(),
+        'payload' => (new AbwesenheitStoreData(
+            email_vertreter: 'v.user',
+            email_delegate: false,
+            call_forwarding: true,
+            d3_forwarding: true,
+        ))->toArray(),
+        'status' => AbwesenheitScheduleStatus::Pending,
+    ]);
+
+    $abwesenheit = mock(AbwesenheitService::class);
+    $abwesenheit->shouldReceive('apply')->once()->andReturn(new AbwesenheitApplyResult(warnings: [
+        'Die Rufumleitung konnte nicht gesetzt werden.',
+    ]));
+
+    $processor = new AbwesenheitScheduleProcessor($abwesenheit);
+    $processor->applySchedule($schedule);
+
+    $schedule->refresh();
+    expect($schedule->status)->toBe(AbwesenheitScheduleStatus::Applied)
+        ->and($schedule->last_error)->toBe('Die Rufumleitung konnte nicht gesetzt werden.');
+
+    Carbon::setTestNow();
+});
+
 test('processor completes schedule without destroy when already inactive', function (): void {
     Carbon::setTestNow('2026-06-20 08:00:00');
 

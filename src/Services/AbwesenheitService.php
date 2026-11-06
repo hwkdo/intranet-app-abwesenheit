@@ -25,61 +25,42 @@ class AbwesenheitService
 {
     public function apply(Model $user, AbwesenheitStoreData $data, ?int $scheduleId = null): AbwesenheitApplyResult
     {
+        $warnings = [];
+
         if ($data->email_delegate) {
-            defer(function () use ($user, $data, $scheduleId): void {
+            $this->attempt($warnings, 'Die Postfach-Freigabe konnte nicht eingerichtet werden.', function () use ($user, $data, $scheduleId): void {
                 $this->grantMailboxDelegation($user, $data->email_vertreter, $scheduleId);
             });
         }
 
         if ($data->call_forwarding) {
-            $destination = $data->call_destination ?? $this->resolveCallDestination($data->phoneVertreterUsername());
-            if ($destination !== null && $destination !== '') {
-                app(AxlServiceInterface::class)->setLineForwardAllDestination($user->linepattern, $destination);
-            }
+            $this->attempt($warnings, 'Die Rufumleitung konnte nicht gesetzt werden.', function () use ($user, $data): void {
+                $destination = $data->call_destination ?? $this->resolveCallDestination($data->phoneVertreterUsername());
+                if ($destination !== null && $destination !== '') {
+                    app(AxlServiceInterface::class)->setLineForwardAllDestination($user->linepattern, $destination);
+                }
+            });
         }
 
-        $emailColleague = AbwesenheitModels::user()::firstWhere('username', $data->email_vertreter);
-        $message = app(MsGraphOutOfOfficeTemplateServiceInterface::class)->getTemplate(
-            user: $user,
-            colleague: $emailColleague,
-            limit: $data->end,
-            notice: $data->notice
-        );
+        $this->attempt($warnings, 'Die E-Mail-Abwesenheit konnte nicht gesetzt werden.', function () use ($user, $data): void {
+            $emailColleague = AbwesenheitModels::user()::firstWhere('username', $data->email_vertreter);
+            $message = app(MsGraphOutOfOfficeTemplateServiceInterface::class)->getTemplate(
+                user: $user,
+                colleague: $emailColleague,
+                limit: $data->end,
+                notice: $data->notice
+            );
 
-        app(MsGraphMailboxServiceInterface::class)->setOutOfOffice(
-            upn: $user->upn,
-            message: $message,
-            von: $data->start,
-            bis: $data->end
-        );
-
-        $warnings = [];
+            app(MsGraphMailboxServiceInterface::class)->setOutOfOffice(
+                upn: $user->upn,
+                message: $message,
+                von: $data->start,
+                bis: $data->end
+            );
+        });
 
         if ($data->d3_forwarding) {
-            $vertretungUsername = str($data->d3VertreterUsername())->beforeLast('@')->value();
-
-            try {
-                $d3Response = $this->d3Api()->setUserAbsence(
-                    username: $user->username,
-                    vertretung_username: $vertretungUsername,
-                    text: null,
-                    start_date: $data->start?->toIso8601String() ?? now()->toIso8601String(),
-                    end_date: $data->end?->toIso8601String(),
-                    raw: true
-                );
-
-                // D3 liefert bei erfolgreichem Schreiben oft 200 mit leerem Body (null).
-                $isUnexpectedD3Response = is_array($d3Response)
-                    ? (! array_key_exists('userId', $d3Response) || ! array_key_exists('isAbsent', $d3Response))
-                    : $d3Response !== null;
-
-                if ($isUnexpectedD3Response) {
-                    $warnings[] = 'Abwesenheit wurde gesetzt, aber Vertretung in d3 ist in diesem Zeitraum nicht moeglich.';
-                }
-            } catch (Throwable $exception) {
-                report($exception);
-                $warnings[] = 'Abwesenheit wurde gesetzt, aber Vertretung in d3 ist in diesem Zeitraum nicht moeglich.';
-            }
+            $this->applyD3Forwarding($user, $data, $warnings);
         }
 
         return new AbwesenheitApplyResult(warnings: $warnings);
@@ -231,44 +212,81 @@ class AbwesenheitService
         return ($status['d3']['abwesend'] ?? false) === true;
     }
 
-    public function destroy(Model $user): void
+    public function destroy(Model $user): AbwesenheitApplyResult
     {
+        $warnings = [];
         $status = $this->show($user);
 
         if ($this->isOutlookActive($status['outlook'])) {
-            try {
+            $this->attempt($warnings, 'Die E-Mail-Abwesenheit konnte nicht entfernt werden.', function () use ($user): void {
                 app(MsGraphMailboxServiceInterface::class)->removeOutOfOffice($user->upn);
-            } catch (Throwable $exception) {
-                report($exception);
-            }
+            });
         }
 
         if (strlen((string) ($status['phone'] ?? '')) > 0) {
-            try {
+            $this->attempt($warnings, 'Die Rufumleitung konnte nicht aufgehoben werden.', function () use ($user): void {
                 app(AxlServiceInterface::class)->setLineForwardAllDestination($user->linepattern, '');
-            } catch (Throwable $exception) {
-                report($exception);
-            }
+            });
         }
 
         if (($status['d3']['abwesend'] ?? false) === true) {
-            try {
+            $this->attempt($warnings, 'Die d3-Abwesenheit konnte nicht entfernt werden.', function () use ($user): void {
                 $this->d3Api()->unsetUserAbsence(
                     username: $user->username,
                     raw: false
                 );
-            } catch (Throwable $exception) {
-                report($exception);
-            }
+            });
         }
 
-        defer(function () use ($user): void {
-            try {
-                $this->revokeMailboxGrants($user);
-            } catch (Throwable $exception) {
-                report($exception);
-            }
+        $this->attempt($warnings, 'Die Postfach-Freigabe konnte nicht zurückgenommen werden.', function () use ($user): void {
+            $this->revokeMailboxGrants($user);
         });
+
+        return new AbwesenheitApplyResult(warnings: $warnings);
+    }
+
+    /**
+     * @param  list<string>  $warnings
+     */
+    private function applyD3Forwarding(Model $user, AbwesenheitStoreData $data, array &$warnings): void
+    {
+        $vertretungUsername = str($data->d3VertreterUsername())->beforeLast('@')->value();
+
+        try {
+            $d3Response = $this->d3Api()->setUserAbsence(
+                username: $user->username,
+                vertretung_username: $vertretungUsername,
+                text: null,
+                start_date: $data->start?->toIso8601String() ?? now()->toIso8601String(),
+                end_date: $data->end?->toIso8601String(),
+                raw: true
+            );
+
+            // D3 liefert bei erfolgreichem Schreiben oft 200 mit leerem Body (null).
+            $isUnexpectedD3Response = is_array($d3Response)
+                ? (! array_key_exists('userId', $d3Response) || ! array_key_exists('isAbsent', $d3Response))
+                : $d3Response !== null;
+
+            if ($isUnexpectedD3Response) {
+                $warnings[] = 'Abwesenheit wurde gesetzt, aber Vertretung in d3 ist in diesem Zeitraum nicht moeglich.';
+            }
+        } catch (Throwable $exception) {
+            report($exception);
+            $warnings[] = 'Die d3-Vertretung konnte nicht gesetzt werden.';
+        }
+    }
+
+    /**
+     * @param  list<string>  $warnings
+     */
+    private function attempt(array &$warnings, string $warning, callable $action): void
+    {
+        try {
+            $action();
+        } catch (Throwable $exception) {
+            report($exception);
+            $warnings[] = $warning;
+        }
     }
 
     public function resolveCallDestination(string $vertreterUsername): ?string

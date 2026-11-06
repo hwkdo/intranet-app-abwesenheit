@@ -86,11 +86,14 @@ test('show returns outlook phone d3 and mailbox from service', function (): void
 
 test('destroy delegates to service and returns message', function (): void {
     $service = mock(AbwesenheitService::class);
-    $service->shouldReceive('destroy')->once();
+    $service->shouldReceive('destroy')->once()->andReturn(new AbwesenheitApplyResult(warnings: ['Die Rufumleitung konnte nicht aufgehoben werden.']));
 
     $this->app->instance(AbwesenheitService::class, $service);
 
     deleteJson('/api/abwesenheit/'.$this->target->username)
         ->assertOk()
-        ->assertJson(['message' => 'Abwesenheit removed']);
+        ->assertJson([
+            'message' => 'Abwesenheit removed',
+            'warnings' => ['Die Rufumleitung konnte nicht aufgehoben werden.'],
+        ]);
 });

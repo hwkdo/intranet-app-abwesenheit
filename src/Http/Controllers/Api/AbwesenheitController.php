@@ -61,8 +61,11 @@ class AbwesenheitController extends Controller
     {
         $user = AbwesenheitModels::userQuery()->where('username', $username)->firstOrFail();
 
-        $this->abwesenheitService->destroy($user);
+        $result = $this->abwesenheitService->destroy($user);
 
-        return response()->json(['message' => 'Abwesenheit removed']);
+        return response()->json([
+            'message' => 'Abwesenheit removed',
+            'warnings' => $result->warnings,
+        ]);
     }
 }

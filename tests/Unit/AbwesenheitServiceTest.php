@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 use App\Models\User;
 use App\Services\Interfaces\D3ApiInterface;
+use Hwkdo\CiscoPhoneServicesLaravel\Interfaces\AxlServiceInterface;
+use Hwkdo\HwkAdminLaravel\HwkAdminService;
 use Hwkdo\IntranetAppAbwesenheit\Data\AbwesenheitStoreData;
 use Hwkdo\IntranetAppAbwesenheit\Models\MailboxGrant;
 use Hwkdo\IntranetAppAbwesenheit\Services\AbwesenheitService;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphMailboxServiceInterface;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphOutOfOfficeTemplateServiceInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use RuntimeException;
 
 use function Pest\Laravel\mock;
 
@@ -274,4 +277,126 @@ test('apply warns on unexpected d3 response shape', function (): void {
 
     expect($result->warnings)->toHaveCount(1)
         ->and($result->warnings[0])->toContain('Vertretung in d3');
+});
+
+test('apply sets mail and d3 when phone forwarding fails', function (): void {
+    $user = User::factory()->create([
+        'username' => 'phone.fail.user',
+        'upn' => 'phone.fail.user@example.test',
+        'active' => true,
+        'telefon' => '+49 231 5493-520',
+    ]);
+
+    $axl = mock(AxlServiceInterface::class);
+    $axl->shouldReceive('getLinePatternForUser')->andReturn('\\+492315493520');
+    $axl->shouldReceive('setLineForwardAllDestination')
+        ->once()
+        ->with('\\+492315493520', '132')
+        ->andThrow(new RuntimeException('CUCM upgrade'));
+    app()->instance(AxlServiceInterface::class, $axl);
+
+    $template = mock(MsGraphOutOfOfficeTemplateServiceInterface::class);
+    $template->shouldReceive('getTemplate')->once()->andReturn('ooo');
+    app()->instance(MsGraphOutOfOfficeTemplateServiceInterface::class, $template);
+
+    $mailbox = mock(MsGraphMailboxServiceInterface::class);
+    $mailbox->shouldReceive('setOutOfOffice')->once();
+    app()->instance(MsGraphMailboxServiceInterface::class, $mailbox);
+
+    $d3 = mock(D3ApiInterface::class);
+    $d3->shouldReceive('setUserAbsence')->once()->andReturn(null);
+    app()->instance(D3ApiInterface::class, $d3);
+    config(['intranet-app-abwesenheit.d3_api' => D3ApiInterface::class]);
+
+    $result = app(AbwesenheitService::class)->apply($user, new AbwesenheitStoreData(
+        email_vertreter: 'vertreter.user',
+        email_delegate: false,
+        call_forwarding: true,
+        d3_forwarding: true,
+        call_destination: '132',
+        d3_vertreter: 'vertreter.user',
+    ));
+
+    expect($result->warnings)->toBe(['Die Rufumleitung konnte nicht gesetzt werden.']);
+});
+
+test('apply sets phone and d3 when mail absence fails', function (): void {
+    $user = User::factory()->create([
+        'username' => 'mail.fail.user',
+        'upn' => 'mail.fail.user@example.test',
+        'active' => true,
+        'telefon' => '+49 231 5493-520',
+    ]);
+
+    $axl = mock(AxlServiceInterface::class);
+    $axl->shouldReceive('getLinePatternForUser')->andReturn('\\+492315493520');
+    $axl->shouldReceive('setLineForwardAllDestination')->once()->with('\\+492315493520', '132');
+    app()->instance(AxlServiceInterface::class, $axl);
+
+    $template = mock(MsGraphOutOfOfficeTemplateServiceInterface::class);
+    $template->shouldReceive('getTemplate')->once()->andReturn('ooo');
+    app()->instance(MsGraphOutOfOfficeTemplateServiceInterface::class, $template);
+
+    $mailbox = mock(MsGraphMailboxServiceInterface::class);
+    $mailbox->shouldReceive('setOutOfOffice')->once()->andThrow(new RuntimeException('graph down'));
+    app()->instance(MsGraphMailboxServiceInterface::class, $mailbox);
+
+    $d3 = mock(D3ApiInterface::class);
+    $d3->shouldReceive('setUserAbsence')->once()->andReturn(null);
+    app()->instance(D3ApiInterface::class, $d3);
+    config(['intranet-app-abwesenheit.d3_api' => D3ApiInterface::class]);
+
+    $result = app(AbwesenheitService::class)->apply($user, new AbwesenheitStoreData(
+        email_vertreter: 'vertreter.user',
+        email_delegate: false,
+        call_forwarding: true,
+        d3_forwarding: true,
+        call_destination: '132',
+        d3_vertreter: 'vertreter.user',
+    ));
+
+    expect($result->warnings)->toBe(['Die E-Mail-Abwesenheit konnte nicht gesetzt werden.']);
+});
+
+test('apply sets mail when mailbox delegation and d3 fail', function (): void {
+    $user = User::factory()->create([
+        'username' => 'delegate.fail.user',
+        'upn' => 'delegate.fail.user@example.test',
+        'active' => true,
+    ]);
+    User::factory()->create([
+        'username' => 'delegate.user',
+        'upn' => 'delegate.user@example.test',
+        'active' => true,
+    ]);
+
+    $admin = mock(HwkAdminService::class);
+    $admin->shouldReceive('getExchangePermission')->once()->andThrow(new RuntimeException('exchange down'));
+    app()->instance(HwkAdminService::class, $admin);
+
+    $template = mock(MsGraphOutOfOfficeTemplateServiceInterface::class);
+    $template->shouldReceive('getTemplate')->once()->andReturn('ooo');
+    app()->instance(MsGraphOutOfOfficeTemplateServiceInterface::class, $template);
+
+    $mailbox = mock(MsGraphMailboxServiceInterface::class);
+    $mailbox->shouldReceive('setOutOfOffice')->once();
+    app()->instance(MsGraphMailboxServiceInterface::class, $mailbox);
+
+    $d3 = mock(D3ApiInterface::class);
+    $d3->shouldReceive('setUserAbsence')->once()->andThrow(new RuntimeException('d3 down'));
+    app()->instance(D3ApiInterface::class, $d3);
+    config(['intranet-app-abwesenheit.d3_api' => D3ApiInterface::class]);
+
+    $result = app(AbwesenheitService::class)->apply($user, new AbwesenheitStoreData(
+        email_vertreter: 'delegate.user',
+        email_delegate: true,
+        call_forwarding: false,
+        d3_forwarding: true,
+        d3_vertreter: 'delegate.user',
+    ));
+
+    expect($result->warnings)->toBe([
+        'Die Postfach-Freigabe konnte nicht eingerichtet werden.',
+        'Die d3-Vertretung konnte nicht gesetzt werden.',
+    ]);
 });
