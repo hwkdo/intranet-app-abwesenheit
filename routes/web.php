@@ -14,6 +14,9 @@ Route::middleware(['web', 'auth', 'can:see-app-abwesenheit'])->group(function ()
 
     Volt::route('apps/abwesenheit/settings/user', 'apps.abwesenheit.settings.user')->name('apps.abwesenheit.settings.user');
 
+    Volt::route('apps/abwesenheit/settings/notifications', 'apps.abwesenheit.settings.notifications')
+        ->name('apps.abwesenheit.settings.notifications');
+
     Volt::route('apps/abwesenheit/info', 'apps.abwesenheit.info')->name('apps.abwesenheit.info');
 });
 

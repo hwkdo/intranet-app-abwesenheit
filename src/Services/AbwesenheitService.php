@@ -12,6 +12,8 @@ use Hwkdo\HwkAdminLaravel\HwkAdminService;
 use Hwkdo\IntranetAppAbwesenheit\Data\AbwesenheitApplyResult;
 use Hwkdo\IntranetAppAbwesenheit\Data\AbwesenheitStoreData;
 use Hwkdo\IntranetAppAbwesenheit\Models\MailboxGrant;
+use Hwkdo\IntranetAppAbwesenheit\Notifications\MailboxDelegationGrantedNotification;
+use Hwkdo\IntranetAppAbwesenheit\Notifications\MailboxDelegationRevokedNotification;
 use Hwkdo\IntranetAppAbwesenheit\Support\AbwesenheitModels;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphMailboxServiceInterface;
 use Hwkdo\MsGraphLaravel\Interfaces\MsGraphOutOfOfficeTemplateServiceInterface;
@@ -115,6 +117,8 @@ class AbwesenheitService
             accessRights: 'FullAccess',
             action: 'Add'
         ));
+
+        $this->notifyMailboxAccessChanged($user, $delegate, granted: true);
     }
 
     public function revokeMailboxGrants(Model $user): void
@@ -141,7 +145,64 @@ class AbwesenheitService
             }
 
             $grant->update(['revoked_at' => now()]);
+
+            if (! $grant->already_existed) {
+                $this->notifyMailboxAccessChanged($user, $grant->delegate_upn, granted: false);
+            }
         }
+    }
+
+    private function notifyMailboxAccessChanged(Model $owner, Model|string $delegate, bool $granted): void
+    {
+        try {
+            $delegateUser = $delegate instanceof Model ? $delegate : $this->findUserByUpn($delegate);
+            $ownerName = $this->personName($owner);
+            $delegateName = $delegateUser instanceof Model
+                ? $this->personName($delegateUser)
+                : (string) $delegate;
+
+            $notification = $granted
+                ? new MailboxDelegationGrantedNotification(forDelegate: false, ownerName: $ownerName, delegateName: $delegateName)
+                : new MailboxDelegationRevokedNotification(forDelegate: false, ownerName: $ownerName, delegateName: $delegateName);
+
+            if (method_exists($owner, 'notify')) {
+                $owner->notify($notification);
+            }
+
+            if (! $delegateUser instanceof Model || ! method_exists($delegateUser, 'notify') || $delegateUser->is($owner)) {
+                return;
+            }
+
+            $delegateUser->notify($granted
+                ? new MailboxDelegationGrantedNotification(forDelegate: true, ownerName: $ownerName, delegateName: $delegateName)
+                : new MailboxDelegationRevokedNotification(forDelegate: true, ownerName: $ownerName, delegateName: $delegateName));
+        } catch (Throwable $exception) {
+            report($exception);
+        }
+    }
+
+    private function findUserByUpn(string $upn): ?Model
+    {
+        $username = str($upn)->before('@')->value();
+
+        if ($username === '') {
+            return null;
+        }
+
+        return AbwesenheitModels::user()::firstWhere('username', $username);
+    }
+
+    private function personName(Model $user): string
+    {
+        $name = trim((string) ($user->getAttribute('name') ?? ''));
+
+        if ($name !== '') {
+            return $name;
+        }
+
+        $upn = trim((string) ($user->getAttribute('upn') ?? ''));
+
+        return $upn !== '' ? $upn : (string) $user->getAttribute('username');
     }
 
     /**

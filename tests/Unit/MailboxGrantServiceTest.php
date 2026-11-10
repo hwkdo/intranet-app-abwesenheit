@@ -9,9 +9,12 @@ use Hwkdo\HwkAdminLaravel\HwkAdminService;
 use Hwkdo\IntranetAppAbwesenheit\Enums\AbwesenheitScheduleStatus;
 use Hwkdo\IntranetAppAbwesenheit\Models\AbwesenheitSchedule;
 use Hwkdo\IntranetAppAbwesenheit\Models\MailboxGrant;
+use Hwkdo\IntranetAppAbwesenheit\Notifications\MailboxDelegationGrantedNotification;
+use Hwkdo\IntranetAppAbwesenheit\Notifications\MailboxDelegationRevokedNotification;
 use Hwkdo\IntranetAppAbwesenheit\Services\AbwesenheitService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Notification;
 
 use function Pest\Laravel\mock;
 
@@ -47,6 +50,7 @@ test('grantMailboxDelegation adds FullAccess when delegate has no existing right
                 && $dto->action === 'Add';
         }));
     app()->instance(HwkAdminService::class, $hwkAdmin);
+    Notification::fake();
 
     app(AbwesenheitService::class)->grantMailboxDelegation($owner, 'delegate.user');
 
@@ -56,6 +60,13 @@ test('grantMailboxDelegation adds FullAccess when delegate has no existing right
         ->and($grant->already_existed)->toBeFalse()
         ->and($grant->delegate_upn)->toBe($delegate->upn)
         ->and($grant->revoked_at)->toBeNull();
+
+    Notification::assertSentTo($owner, MailboxDelegationGrantedNotification::class, function (MailboxDelegationGrantedNotification $notification): bool {
+        return $notification->forDelegate === false;
+    });
+    Notification::assertSentTo($delegate, MailboxDelegationGrantedNotification::class, function (MailboxDelegationGrantedNotification $notification): bool {
+        return $notification->forDelegate === true;
+    });
 });
 
 test('grantMailboxDelegation skips Add when FullAccess already exists', function (): void {
@@ -80,6 +91,7 @@ test('grantMailboxDelegation skips Add when FullAccess already exists', function
         ]));
     $hwkAdmin->shouldReceive('setExchangePermission')->never();
     app()->instance(HwkAdminService::class, $hwkAdmin);
+    Notification::fake();
 
     app(AbwesenheitService::class)->grantMailboxDelegation($owner, 'delegate.existing');
 
@@ -88,6 +100,8 @@ test('grantMailboxDelegation skips Add when FullAccess already exists', function
     expect($grant)->not->toBeNull()
         ->and($grant->already_existed)->toBeTrue()
         ->and($grant->revoked_at)->toBeNull();
+
+    Notification::assertNothingSent();
 });
 
 test('revokeMailboxGrants removes only grants that were added by absence', function (): void {
@@ -123,11 +137,18 @@ test('revokeMailboxGrants removes only grants that were added by absence', funct
     $hwkAdmin->shouldReceive('resetExchangePermission')->never();
     $hwkAdmin->shouldReceive('getExchangePermission')->never();
     app()->instance(HwkAdminService::class, $hwkAdmin);
+    Notification::fake();
 
     app(AbwesenheitService::class)->revokeMailboxGrants($owner);
 
     expect(MailboxGrant::query()->active()->where('user_id', $owner->id)->count())->toBe(0)
         ->and(MailboxGrant::query()->where('user_id', $owner->id)->whereNotNull('revoked_at')->count())->toBe(2);
+
+    Notification::assertSentToTimes($owner, MailboxDelegationRevokedNotification::class, 1);
+    Notification::assertSentTo($owner, MailboxDelegationRevokedNotification::class, function (MailboxDelegationRevokedNotification $notification): bool {
+        return $notification->forDelegate === false
+            && $notification->delegateName === 'added.delegate@example.test';
+    });
 });
 
 test('revokeMailboxGrants does not call exchange when only already_existed grants exist', function (): void {
@@ -149,12 +170,15 @@ test('revokeMailboxGrants does not call exchange when only already_existed grant
     $hwkAdmin->shouldReceive('setExchangePermission')->never();
     $hwkAdmin->shouldReceive('resetExchangePermission')->never();
     app()->instance(HwkAdminService::class, $hwkAdmin);
+    Notification::fake();
 
     app(AbwesenheitService::class)->revokeMailboxGrants($owner);
 
     $grant = MailboxGrant::query()->where('user_id', $owner->id)->first();
 
     expect($grant->revoked_at)->not->toBeNull();
+
+    Notification::assertNothingSent();
 });
 
 test('revokeMailboxGrants is a noop without active grants', function (): void {
@@ -168,10 +192,13 @@ test('revokeMailboxGrants is a noop without active grants', function (): void {
     $hwkAdmin->shouldReceive('getExchangePermission')->never();
     $hwkAdmin->shouldReceive('resetExchangePermission')->never();
     app()->instance(HwkAdminService::class, $hwkAdmin);
+    Notification::fake();
 
     app(AbwesenheitService::class)->revokeMailboxGrants($owner);
 
     expect(MailboxGrant::query()->count())->toBe(0);
+
+    Notification::assertNothingSent();
 });
 
 test('grantMailboxDelegation stores schedule_id when provided', function (): void {
@@ -197,8 +224,57 @@ test('grantMailboxDelegation stores schedule_id when provided', function (): voi
     $hwkAdmin->shouldReceive('getExchangePermission')->once()->andReturn(new Collection);
     $hwkAdmin->shouldReceive('setExchangePermission')->once();
     app()->instance(HwkAdminService::class, $hwkAdmin);
+    Notification::fake();
 
     app(AbwesenheitService::class)->grantMailboxDelegation($owner, 'delegate.schedule', $schedule->id);
 
     expect(MailboxGrant::query()->where('user_id', $owner->id)->value('schedule_id'))->toBe($schedule->id);
+
+    Notification::assertSentTo($owner, MailboxDelegationGrantedNotification::class);
+});
+
+test('revokeMailboxGrants benachrichtigt inhaber und vertreter', function (): void {
+    $owner = User::factory()->create([
+        'username' => 'owner.notify',
+        'vorname' => 'Ada',
+        'nachname' => 'Lovelace',
+        'active' => true,
+    ]);
+    $delegate = User::factory()->create([
+        'username' => 'delegate.notify',
+        'vorname' => 'Grace',
+        'nachname' => 'Hopper',
+        'active' => true,
+    ]);
+
+    MailboxGrant::query()->create([
+        'user_id' => $owner->id,
+        'owner_upn' => $owner->upn,
+        'delegate_upn' => $delegate->upn,
+        'access_rights' => 'FullAccess',
+        'already_existed' => false,
+        'granted_at' => now(),
+    ]);
+
+    $hwkAdmin = mock(HwkAdminService::class);
+    $hwkAdmin->shouldReceive('setExchangePermission')->once();
+    app()->instance(HwkAdminService::class, $hwkAdmin);
+    Notification::fake();
+
+    app(AbwesenheitService::class)->revokeMailboxGrants($owner);
+
+    Notification::assertSentTo($owner, MailboxDelegationRevokedNotification::class, function (MailboxDelegationRevokedNotification $notification) use ($owner): bool {
+        $payload = $notification->toArray($owner);
+
+        return $notification->forDelegate === false
+            && $payload['title'] === 'Postfach-Zugriff entfernt'
+            && $payload['body'] === 'Der Vollzugriff von Grace Hopper auf Ihr Outlook-Postfach wurde entfernt.';
+    });
+    Notification::assertSentTo($delegate, MailboxDelegationRevokedNotification::class, function (MailboxDelegationRevokedNotification $notification) use ($delegate): bool {
+        $payload = $notification->toArray($delegate);
+
+        return $notification->forDelegate === true
+            && $payload['body'] === 'Ihr Vollzugriff auf das Outlook-Postfach von Ada Lovelace wurde entfernt.'
+            && $payload['url'] === null;
+    });
 });
