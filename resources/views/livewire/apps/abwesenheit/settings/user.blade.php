@@ -6,7 +6,12 @@ title('Abwesenheit – Meine Einstellungen');
 
 ?>
 <div>
-<x-intranet-app-abwesenheit::abwesenheit-layout heading="Meine Einstellungen" subheading="Postfach-Delegierung bei Abwesenheit">
-    @livewire('intranet-app-base::user-settings', ['appIdentifier' => 'abwesenheit'])
-</x-intranet-app-abwesenheit::abwesenheit-layout>
+    <x-intranet-app-abwesenheit::abwesenheit-layout
+        heading="Meine Einstellungen"
+        subheading="Legen Sie fest, ob Vorgesetzte bei Ihrer Abwesenheit das Postfach delegieren dürfen."
+    >
+        <section class="glass-card overflow-hidden p-5">
+            @livewire('intranet-app-base::user-settings', ['appIdentifier' => 'abwesenheit'])
+        </section>
+    </x-intranet-app-abwesenheit::abwesenheit-layout>
 </div>

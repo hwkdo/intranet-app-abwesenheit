@@ -1,6 +1,7 @@
 <?php
 
-use function Livewire\Volt\{state, title};
+use function Livewire\Volt\state;
+use function Livewire\Volt\title;
 
 title('Abwesenheit - Beispiel');
 
@@ -13,34 +14,35 @@ state(['exampleData' => [
 
 ?>
 <div>
-<x-intranet-app-abwesenheit::abwesenheit-layout heading="Beispiel-Seite" subheading="Demonstration der Abwesenheit-Funktionalität">
-    <flux:card>
-        <flux:heading size="lg" class="mb-4">Beispiel-Content</flux:heading>
-        <flux:text class="mb-6">
-            Diese Seite zeigt, wie eine typische App-Seite aussehen könnte.
-        </flux:text>
-        
+    <x-intranet-app-abwesenheit::abwesenheit-layout
+        heading="Beispiel"
+        subheading="So ist eine Seite der Abwesenheits-App aufgebaut."
+    >
         <div class="space-y-4">
-            <div class="rounded-lg border p-4">
-                <flux:heading size="md">{{ $exampleData['name'] }}</flux:heading>
-                <flux:text class="mt-2">{{ $exampleData['description'] }}</flux:text>
-                <div class="mt-2 flex items-center gap-2">
-                    <flux:badge variant="success">{{ $exampleData['status'] }}</flux:badge>
-                    <flux:text class="text-sm text-zinc-500">{{ $exampleData['created_at'] }}</flux:text>
+            <section class="glass-card overflow-hidden">
+                <x-intranet-app-abwesenheit::section-header
+                    icon="document-text"
+                    title="{{ $exampleData['name'] }}"
+                    description="{{ $exampleData['description'] }}"
+                />
+                <div class="divide-y divide-[#d0e3f9] px-5 dark:divide-white/10">
+                    <x-intranet-app-abwesenheit::setting-row label="Status" :description="$exampleData['created_at']">
+                        <x-intranet-app-abwesenheit::status-pill active>{{ $exampleData['status'] }}</x-intranet-app-abwesenheit::status-pill>
+                    </x-intranet-app-abwesenheit::setting-row>
                 </div>
-            </div>
-            
-            <div class="rounded-lg border p-4">
-                <flux:heading size="md">Weitere Informationen</flux:heading>
-                <flux:text class="mt-2">
-                    Hier könnten weitere Details oder Aktionen für das Beispiel-Item angezeigt werden.
-                </flux:text>
-                <div class="mt-4 flex gap-2">
+            </section>
+
+            <section class="glass-card overflow-hidden">
+                <x-intranet-app-abwesenheit::section-header
+                    icon="information-circle"
+                    title="Weitere Informationen"
+                    description="Hier könnten weitere Details oder Aktionen für das Beispiel-Item angezeigt werden."
+                />
+                <div class="flex flex-wrap justify-end gap-2 px-5 py-4">
                     <flux:button variant="primary" size="sm">Bearbeiten</flux:button>
-                    <flux:button variant="outline" size="sm">Löschen</flux:button>
+                    <flux:button variant="ghost" size="sm">Löschen</flux:button>
                 </div>
-            </div>
+            </section>
         </div>
-    </flux:card>
-</x-intranet-app-abwesenheit::abwesenheit-layout>
+    </x-intranet-app-abwesenheit::abwesenheit-layout>
 </div>

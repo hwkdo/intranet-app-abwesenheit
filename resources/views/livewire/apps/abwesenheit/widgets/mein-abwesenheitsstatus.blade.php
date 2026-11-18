@@ -238,18 +238,14 @@ new class extends Component
 ?>
 
 @placeholder
-    <flux:card class="h-full">
-        <div class="mb-3 space-y-2">
-            <flux:skeleton class="h-4 w-52" />
-            <flux:skeleton class="h-3 w-64" />
-        </div>
-        <div class="space-y-2">
-            <flux:skeleton class="h-10 w-full rounded-md" />
-            <flux:skeleton class="h-10 w-full rounded-md" />
-            <flux:skeleton class="h-10 w-full rounded-md" />
-            <flux:skeleton class="h-10 w-full rounded-md" />
-        </div>
-    </flux:card>
+    <div class="glass-card h-full space-y-3 p-5">
+        <flux:skeleton class="h-4 w-52" />
+        <flux:skeleton class="h-3 w-64" />
+        <flux:skeleton class="h-10 w-full rounded-xl" />
+        <flux:skeleton class="h-10 w-full rounded-xl" />
+        <flux:skeleton class="h-10 w-full rounded-xl" />
+        <flux:skeleton class="h-10 w-full rounded-xl" />
+    </div>
 @endplaceholder
 
 <x-intranet-app-base::dashboard.widget-card
@@ -257,103 +253,103 @@ new class extends Component
     description="Outlook, Telefon, d3 und Postfach"
 >
     <div class="flex items-center justify-between gap-3">
-        @if($this->overallState === 'absent')
-            <flux:badge color="amber" size="sm">Abwesend</flux:badge>
-        @elseif($this->overallState === 'planned')
-            <flux:badge color="blue" size="sm">Geplant</flux:badge>
+        @if ($this->overallState === 'absent')
+            <x-intranet-app-abwesenheit::status-pill active>Abwesend</x-intranet-app-abwesenheit::status-pill>
+        @elseif ($this->overallState === 'planned')
+            <x-intranet-app-abwesenheit::status-pill active>Geplant</x-intranet-app-abwesenheit::status-pill>
         @else
-            <flux:badge color="green" size="sm">Anwesend</flux:badge>
+            <x-intranet-app-abwesenheit::status-pill>Anwesend</x-intranet-app-abwesenheit::status-pill>
         @endif
     </div>
 
-    <div class="space-y-2">
-        <div class="rounded-md border border-zinc-200 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800/40">
+    <div class="divide-y divide-[#d0e3f9] dark:divide-white/10">
+        <div class="py-2.5">
             <div class="flex items-start justify-between gap-3">
-                <div class="font-medium">Outlook</div>
-                @if($this->status['fetch_errors']['outlook'])
-                    <flux:badge color="red" size="sm">Fehler</flux:badge>
-                @elseif($this->outlookStatus() === 'alwaysEnabled' || $this->outlookStatus() === 'scheduled')
-                    <flux:badge color="amber" size="sm">Aktiv</flux:badge>
+                <p class="text-sm font-medium text-[#073070] dark:text-white">Outlook</p>
+                @if ($this->status['fetch_errors']['outlook'])
+                    <x-intranet-app-abwesenheit::status-pill active>Fehler</x-intranet-app-abwesenheit::status-pill>
+                @elseif ($this->outlookStatus() === 'alwaysEnabled' || $this->outlookStatus() === 'scheduled')
+                    <x-intranet-app-abwesenheit::status-pill active>Aktiv</x-intranet-app-abwesenheit::status-pill>
                 @else
-                    <flux:badge color="zinc" size="sm">Aus</flux:badge>
+                    <x-intranet-app-abwesenheit::status-pill>Aus</x-intranet-app-abwesenheit::status-pill>
                 @endif
             </div>
-            @if($this->status['fetch_errors']['outlook'])
-                <div class="mt-1 text-xs text-red-700 dark:text-red-300">Outlook-Status konnte nicht abgerufen werden.</div>
-            @elseif($this->outlookStatus() === 'scheduled' && $this->outlookEndLabel())
-                <div class="mt-1 text-xs text-zinc-500 dark:text-white/70">Bis {{ $this->outlookEndLabel() }}</div>
-            @elseif($this->outlookStatus() === 'alwaysEnabled')
-                <div class="mt-1 text-xs text-zinc-500 dark:text-white/70">Ohne Enddatum</div>
+            @if ($this->status['fetch_errors']['outlook'])
+                <p class="mt-1 text-xs text-slate-600 dark:text-white/70">Outlook-Status konnte nicht abgerufen werden.</p>
+            @elseif ($this->outlookStatus() === 'scheduled' && $this->outlookEndLabel())
+                <p class="mt-1 text-xs text-slate-600 dark:text-white/70">Bis {{ $this->outlookEndLabel() }}</p>
+            @elseif ($this->outlookStatus() === 'alwaysEnabled')
+                <p class="mt-1 text-xs text-slate-600 dark:text-white/70">Ohne Enddatum</p>
             @endif
         </div>
 
-        <div class="rounded-md border border-zinc-200 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800/40">
+        <div class="py-2.5">
             <div class="flex items-start justify-between gap-3">
-                <div class="font-medium">Telefon</div>
-                @if($this->status['fetch_errors']['phone'])
-                    <flux:badge color="red" size="sm">Fehler</flux:badge>
-                @elseif(strlen($this->status['phone']) > 0)
-                    <flux:badge color="amber" size="sm">Aktiv</flux:badge>
+                <p class="text-sm font-medium text-[#073070] dark:text-white">Telefon</p>
+                @if ($this->status['fetch_errors']['phone'])
+                    <x-intranet-app-abwesenheit::status-pill active>Fehler</x-intranet-app-abwesenheit::status-pill>
+                @elseif (strlen($this->status['phone']) > 0)
+                    <x-intranet-app-abwesenheit::status-pill active>Aktiv</x-intranet-app-abwesenheit::status-pill>
                 @else
-                    <flux:badge color="zinc" size="sm">Aus</flux:badge>
+                    <x-intranet-app-abwesenheit::status-pill>Aus</x-intranet-app-abwesenheit::status-pill>
                 @endif
             </div>
-            @if($this->status['fetch_errors']['phone'])
-                <div class="mt-1 text-xs text-red-700 dark:text-red-300">Telefonstatus konnte nicht abgerufen werden.</div>
-            @elseif(strlen($this->status['phone']) > 0)
-                <div class="mt-1 text-xs text-zinc-500 dark:text-white/70">Umgeleitet auf {{ $this->status['phone'] }}</div>
+            @if ($this->status['fetch_errors']['phone'])
+                <p class="mt-1 text-xs text-slate-600 dark:text-white/70">Telefonstatus konnte nicht abgerufen werden.</p>
+            @elseif (strlen($this->status['phone']) > 0)
+                <p class="mt-1 text-xs text-slate-600 dark:text-white/70">Umgeleitet auf {{ $this->status['phone'] }}</p>
             @endif
         </div>
 
-        <div class="rounded-md border border-zinc-200 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800/40">
+        <div class="py-2.5">
             <div class="flex items-start justify-between gap-3">
-                <div class="font-medium">d3</div>
-                @if($this->status['fetch_errors']['d3'])
-                    <flux:badge color="red" size="sm">Fehler</flux:badge>
-                @elseif($this->status['d3']['abwesend'])
-                    <flux:badge color="amber" size="sm">Aktiv</flux:badge>
+                <p class="text-sm font-medium text-[#073070] dark:text-white">d3</p>
+                @if ($this->status['fetch_errors']['d3'])
+                    <x-intranet-app-abwesenheit::status-pill active>Fehler</x-intranet-app-abwesenheit::status-pill>
+                @elseif ($this->status['d3']['abwesend'])
+                    <x-intranet-app-abwesenheit::status-pill active>Aktiv</x-intranet-app-abwesenheit::status-pill>
                 @else
-                    <flux:badge color="zinc" size="sm">Aus</flux:badge>
+                    <x-intranet-app-abwesenheit::status-pill>Aus</x-intranet-app-abwesenheit::status-pill>
                 @endif
             </div>
-            @if($this->status['fetch_errors']['d3'])
-                <div class="mt-1 text-xs text-red-700 dark:text-red-300">d3-Status konnte nicht abgerufen werden.</div>
-            @elseif($this->status['d3']['abwesend'] && $this->d3VertreterName() !== '')
-                <div class="mt-1 text-xs text-zinc-500 dark:text-white/70">Vertretung: {{ $this->d3VertreterName() }}</div>
-            @elseif($this->status['d3']['abwesend'])
-                <div class="mt-1 text-xs text-zinc-500 dark:text-white/70">Kein Vertreter hinterlegt</div>
+            @if ($this->status['fetch_errors']['d3'])
+                <p class="mt-1 text-xs text-slate-600 dark:text-white/70">d3-Status konnte nicht abgerufen werden.</p>
+            @elseif ($this->status['d3']['abwesend'] && $this->d3VertreterName() !== '')
+                <p class="mt-1 text-xs text-slate-600 dark:text-white/70">Vertretung: {{ $this->d3VertreterName() }}</p>
+            @elseif ($this->status['d3']['abwesend'])
+                <p class="mt-1 text-xs text-slate-600 dark:text-white/70">Kein Vertreter hinterlegt</p>
             @endif
         </div>
 
-        <div class="rounded-md border border-zinc-200 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800/40">
+        <div class="py-2.5">
             <div class="flex items-start justify-between gap-3">
-                <div class="font-medium">Postfach</div>
-                @if($this->status['mailbox']['delegated'])
-                    <flux:badge color="amber" size="sm">Aktiv</flux:badge>
+                <p class="text-sm font-medium text-[#073070] dark:text-white">Postfach</p>
+                @if ($this->status['mailbox']['delegated'])
+                    <x-intranet-app-abwesenheit::status-pill active>Aktiv</x-intranet-app-abwesenheit::status-pill>
                 @else
-                    <flux:badge color="zinc" size="sm">Aus</flux:badge>
+                    <x-intranet-app-abwesenheit::status-pill>Aus</x-intranet-app-abwesenheit::status-pill>
                 @endif
             </div>
-            @if($this->status['mailbox']['delegated'] && $this->status['mailbox']['delegate_names'] !== '')
-                <div class="mt-1 text-xs text-zinc-500 dark:text-white/70">Delegiert an {{ $this->status['mailbox']['delegate_names'] }}</div>
-            @elseif($this->status['mailbox']['delegated'])
-                <div class="mt-1 text-xs text-zinc-500 dark:text-white/70">Delegierung aktiv</div>
+            @if ($this->status['mailbox']['delegated'] && $this->status['mailbox']['delegate_names'] !== '')
+                <p class="mt-1 text-xs text-slate-600 dark:text-white/70">Delegiert an {{ $this->status['mailbox']['delegate_names'] }}</p>
+            @elseif ($this->status['mailbox']['delegated'])
+                <p class="mt-1 text-xs text-slate-600 dark:text-white/70">Delegierung aktiv</p>
             @endif
         </div>
     </div>
 
-    @if($this->pendingSchedules->isNotEmpty())
-        <div class="space-y-2">
-            @foreach($this->pendingSchedules as $schedule)
+    @if ($this->pendingSchedules->isNotEmpty())
+        <div class="divide-y divide-[#d0e3f9] dark:divide-white/10">
+            @foreach ($this->pendingSchedules as $schedule)
                 <div
                     wire:key="abwesenheit-pending-schedule-{{ $schedule->id }}"
-                    class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-zinc-200 px-3 py-2 dark:border-zinc-600"
+                    class="flex flex-wrap items-center justify-between gap-2 py-2.5"
                 >
                     <div>
-                        <div class="text-sm font-medium">Geplant</div>
-                        <div class="text-xs text-zinc-500 dark:text-white/70">
+                        <p class="text-sm font-medium text-[#073070] dark:text-white">Geplant</p>
+                        <p class="text-xs text-slate-600 dark:text-white/70">
                             {{ $schedule->starts_at->format('d.m.Y') }} – {{ $schedule->ends_at->format('d.m.Y') }}
-                        </div>
+                        </p>
                     </div>
                     <flux:button
                         size="sm"
@@ -370,7 +366,7 @@ new class extends Component
     @endif
 
     <div class="flex flex-wrap items-center gap-2 pt-1">
-        @if($this->isAbsent)
+        @if ($this->isAbsent)
             <flux:button
                 size="sm"
                 variant="danger"
@@ -379,7 +375,7 @@ new class extends Component
                 wire:target="deactivate"
             >
                 <span wire:loading.remove wire:target="deactivate">Wieder anwesend</span>
-                <span wire:loading wire:target="deactivate">Deaktiviere…</span>
+                <span wire:loading wire:target="deactivate">Wird deaktiviert…</span>
             </flux:button>
         @endif
 

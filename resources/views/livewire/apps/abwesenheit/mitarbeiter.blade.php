@@ -24,30 +24,53 @@ $users = computed(function () {
 
 ?>
 <div>
-<x-intranet-app-abwesenheit::abwesenheit-layout heading="Meine Mitarbeiter" subheading="Abwesenheit für Mitarbeiter verwalten">
-    <div class="space-y-6">
-        <div class="grid gap-4 md:grid-cols-2">
-            <flux:select wire:model.live="showAll" label="Zeige Mitarbeiter">
-                <flux:select.option value="0">Nur direkt Unterstellte</flux:select.option>
-                <flux:select.option value="1">Alle Unterstellten</flux:select.option>
-            </flux:select>
+    <x-intranet-app-abwesenheit::abwesenheit-layout
+        heading="Meine Mitarbeiter"
+        subheading="Wählen Sie eine Person und richten Sie deren Abwesenheit ein."
+    >
+        <div class="space-y-4">
+            <section class="glass-card overflow-hidden">
+                <x-intranet-app-abwesenheit::section-header
+                    icon="users"
+                    title="Auswahl"
+                    description="Direkt unterstellte Personen oder die gesamte Struktur."
+                />
+                <div class="divide-y divide-[#d0e3f9] px-5 dark:divide-white/10">
+                    <x-intranet-app-abwesenheit::setting-row label="Zeige Mitarbeiter" description="Schränken Sie die Liste auf die direkte Ebene ein oder öffnen Sie alle Unterstellten.">
+                        <flux:select wire:model.live="showAll" class="sm:w-72">
+                            <flux:select.option value="0">Nur direkt Unterstellte</flux:select.option>
+                            <flux:select.option value="1">Alle Unterstellten</flux:select.option>
+                        </flux:select>
+                    </x-intranet-app-abwesenheit::setting-row>
 
-            <flux:select wire:model.live="selected_user" label="Mitarbeiter" variant="listbox" searchable placeholder="Bitte wählen">
-                <flux:select.option value="">Bitte wählen</flux:select.option>
-                @foreach($this->users as $id => $name)
-                    <flux:select.option value="{{ $id }}">{{ $name }}</flux:select.option>
-                @endforeach
-            </flux:select>
-        </div>
+                    <x-intranet-app-abwesenheit::setting-row label="Mitarbeiter" description="Die Abwesenheit der gewählten Person erscheint darunter.">
+                        <div class="sm:w-80">
+                            <flux:select wire:model.live="selected_user" variant="listbox" searchable placeholder="Bitte wählen">
+                                <flux:select.option value="">Bitte wählen</flux:select.option>
+                                @foreach ($this->users as $id => $name)
+                                    <flux:select.option value="{{ $id }}">{{ $name }}</flux:select.option>
+                                @endforeach
+                            </flux:select>
+                        </div>
+                    </x-intranet-app-abwesenheit::setting-row>
+                </div>
+            </section>
 
-        @if($this->selected_user)
-            <div class="rounded-xl border border-zinc-200 p-4 dark:border-white/10">
+            @if ($this->users->isEmpty())
+                <x-intranet-app-abwesenheit::empty-state title="Keine Mitarbeiter" icon="users">
+                    In dieser Auswahl sind keine Mitarbeiter vorhanden.
+                </x-intranet-app-abwesenheit::empty-state>
+            @elseif ($this->selected_user === '' || $this->selected_user === null)
+                <x-intranet-app-abwesenheit::empty-state title="Kein Mitarbeiter gewählt" icon="user">
+                    Wählen Sie eine Person, um die Abwesenheit zu bearbeiten.
+                </x-intranet-app-abwesenheit::empty-state>
+            @else
                 <livewire:apps.abwesenheit.meine
                     :user-id="(int) $this->selected_user"
+                    :embedded="true"
                     :key="'abwesenheit-user-'.$this->selected_user"
                 />
-            </div>
-        @endif
-    </div>
-</x-intranet-app-abwesenheit::abwesenheit-layout>
+            @endif
+        </div>
+    </x-intranet-app-abwesenheit::abwesenheit-layout>
 </div>
