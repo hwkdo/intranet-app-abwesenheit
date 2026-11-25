@@ -6,7 +6,9 @@ namespace Hwkdo\IntranetAppAbwesenheit\Services;
 
 use Hwkdo\IntranetAppAbwesenheit\Data\AbwesenheitApplyResult;
 use Hwkdo\IntranetAppAbwesenheit\Enums\AbwesenheitScheduleStatus;
+use Hwkdo\IntranetAppAbwesenheit\Events\AbwesenheitStatusChanged;
 use Hwkdo\IntranetAppAbwesenheit\Models\AbwesenheitSchedule;
+use Illuminate\Support\Facades\Cache;
 use Throwable;
 
 class AbwesenheitScheduleProcessor
@@ -56,6 +58,7 @@ class AbwesenheitScheduleProcessor
                 'applied_at' => now(),
                 'last_error' => $this->warningText($result),
             ]);
+            $this->broadcastStatus((int) $schedule->user_id);
         } catch (Throwable $exception) {
             report($exception);
             $schedule->update([
@@ -82,6 +85,7 @@ class AbwesenheitScheduleProcessor
                 'completed_at' => now(),
                 'last_error' => $this->warningText($result),
             ]);
+            $this->broadcastStatus((int) $schedule->user_id);
         } catch (Throwable $exception) {
             report($exception);
             $schedule->update([
@@ -112,6 +116,12 @@ class AbwesenheitScheduleProcessor
                 AbwesenheitScheduleStatus::Applied,
             ])
             ->exists();
+    }
+
+    private function broadcastStatus(int $userId): void
+    {
+        Cache::forget('intranet-app-abwesenheit.widget-status.'.$userId);
+        AbwesenheitStatusChanged::dispatch($userId);
     }
 
     private function warningText(AbwesenheitApplyResult $result): ?string

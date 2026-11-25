@@ -2,6 +2,7 @@
 
 use Flux\Flux;
 use Hwkdo\IntranetAppAbwesenheit\Enums\AbwesenheitScheduleStatus;
+use Hwkdo\IntranetAppAbwesenheit\Events\AbwesenheitStatusChanged;
 use Hwkdo\IntranetAppAbwesenheit\Models\AbwesenheitSchedule;
 use Hwkdo\IntranetAppAbwesenheit\Services\AbwesenheitScheduleProcessor;
 use Hwkdo\IntranetAppAbwesenheit\Services\AbwesenheitService;
@@ -90,6 +91,7 @@ new class extends Component
 
         Cache::forget($this->statusCacheKey((int) $user->id));
         $this->forgetComputedStatus();
+        AbwesenheitStatusChanged::dispatch((int) $user->id);
 
         if ($result->warnings !== []) {
             Flux::toast(text: implode(' ', $result->warnings), variant: 'warning');
@@ -113,6 +115,7 @@ new class extends Component
 
         unset($this->pendingSchedules);
         unset($this->overallState);
+        AbwesenheitStatusChanged::dispatch((int) $user->id);
 
         Flux::toast(text: 'Geplante Abwesenheit wurde storniert.', variant: 'success');
     }
@@ -139,6 +142,33 @@ new class extends Component
     public function d3VertreterName(): string
     {
         return $this->status['d3']['vertreter_name'] ?? '';
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function getListeners(): array
+    {
+        $user = auth()->user();
+
+        if ($user === null || ! $user->can('see-app-abwesenheit')) {
+            return [];
+        }
+
+        return [
+            'echo-private:App.Models.User.'.$user->id.',.abwesenheit.status-changed' => 'refreshFromBroadcast',
+        ];
+    }
+
+    public function refreshFromBroadcast(): void
+    {
+        $userId = auth()->id();
+
+        if ($userId !== null) {
+            Cache::forget($this->statusCacheKey((int) $userId));
+        }
+
+        $this->forgetComputedStatus();
     }
 
     private function statusCacheKey(int $userId): string
